@@ -19,12 +19,15 @@ If you find a problem that isn't on this list, please open an issue. That is exa
 | **X-ray view solves each wire as 1 mΩ** so every wire has its own current. | Real wires have resistance proportional to length and thickness. | Gives each wire a real current that obeys Kirchhoff's law, which is tested. |
 | **Transistors remember their last on/off state** between solves, so circuits with two stable states (the L10 flip-flop) hold a bit. On power-up a flip-flop starts in a fixed state. | A real flip-flop powers up in an unpredictable state, decided by tiny differences between its parts. | The model's fixed start state keeps the lesson repeatable; the app says power-off wipes the memory, which is true. |
 | **Meter** shows the voltage at the control-knob wiper only. | A real meter can be moved to any point. | A movable probe is on the queue. |
+| **Mystery-fault probe** reads a point's voltage against the battery's negative, perfectly, without loading the circuit. | A real meter has input resistance (typically 10 MΩ) and its own probe placement errors. | Teaches the troubleshooting method; meter loading matters only in high-resistance circuits. |
+| **Mystery faults** are only chosen if they change something you can see (an LED's brightness or a reading). | Real faults can be silent until something else fails. | A fault with no symptom can't be found by observation, so it would teach nothing. |
 
 ## Learn app simulations
 
 - **Water/flow analogy.** Exact for steady DC through resistors; breaks for the cases the app itself flags (diodes, AC, fields).
 - **Logic gates as liquid.** Solved as a real pressure network (the same maths as voltage). The gates are drawn as *resistor–transistor logic* style networks; modern chips use CMOS, which pulls outputs both up and down actively.
 - **Speed of electricity.** Uses a typical signal speed of about 0.7 × the speed of light and a typical drift speed of 0.1 mm/s; real values depend on the wire and the current.
+- **Series & parallel and Kirchhoff lessons** use ideal resistors and an ideal 9 V battery (no internal resistance), so the numbers are exact.
 - **Transistor lesson.** Gain fixed at 100, capped at the load's limit.
 - **I–V curves** are drawn in arbitrary units to show shape, not datasheet values.
 - **Oscilloscope.** Signals are ideal (square edges are perfectly vertical). The capacitor curve is the exact exponential. The blinker's square wave is idealised; a real astable's waveforms have rounded edges.

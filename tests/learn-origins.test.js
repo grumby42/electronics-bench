@@ -6,7 +6,7 @@ setTimeout(()=>{ try{
   let w=boot(), L=w.__learn, D=w.document;
   const src=html; const keys=[...src.matchAll(/^ "([^"]+)":\{thing:/gm)].map(m=>m[1]);
   const navs=new Set(L.STEPS.map(s=>s.nav)); const orphan=keys.filter(k=>!navs.has(k));
-  ok('every origin story attaches to a real lesson', keys.length===14 && !orphan.length, keys.length+' stories'+(orphan.length?' | orphans: '+orphan:''));
+  ok('every origin story attaches to a real lesson', keys.length===15 && !orphan.length, keys.length+' stories'+(orphan.length?' | orphans: '+orphan:''));
   let bad=[]; L.STEPS.forEach((s,i)=>{ L.go(i); const c=D.querySelector('#main details.origin');
     if(keys.includes(s.nav)){ const hs=[...c.querySelectorAll('h4')].map(h=>h.textContent);
       const good=c && hs.join('|')==='The problem it solved|Found or designed?|Why it’s shaped this way|Then vs. now' && c.querySelectorAll('.evseg.cur').length===1 && c.querySelectorAll('.otl li').length>=3 && c.querySelector('.verdict');

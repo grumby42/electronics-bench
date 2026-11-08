@@ -9,7 +9,7 @@ const res=[]; const ok=(n,c,i)=>res.push([c?'PASS':'FAIL',n,i||'']);
 setTimeout(()=>{ try{
   const L=new JSDOM(learn,{runScripts:'dangerously',pretendToBeVisual:true,url:'https://site.test/electronics-basics.html',beforeParse(w){w.scrollTo=()=>{};w.requestAnimationFrame=()=>0;w.cancelAnimationFrame=()=>{};}}).window;
   const links=[]; L.__learn.STEPS.forEach((s,i)=>{ L.__learn.go(i); const a=L.document.querySelector('#main .handoff a'); if(a) links.push([s.nav,a.getAttribute('href')]); });
-  ok('the four Learn projects (only) have a handoff button', links.length===4, links.map(l=>l[1]).join(' '));
+  ok('the five lessons with a bench build (only) have a handoff button', links.length===5, links.map(l=>l[1]).join(' '));
   for(const [nav,href] of links){
     const hash=href.slice(href.indexOf('#')); const n=+/p=(\d+)/.exec(hash)[1];
     const T=bootT(hash); const st=T.__dbg.state;

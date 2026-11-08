@@ -4,7 +4,8 @@ Builds are stamped `build YYYY.MM.DD-n` with the UTC ship time in each file's he
 
 ## 2026-11-08
 
-### Course (`electronics-basics.html`) — builds 2026.11.08-1 to -7
+### Course (`electronics-basics.html`) — builds 2026.11.08-1 to -8
+- **-8** **Series & parallel** lesson (switchable bench, live current streaks, pull one resistor out to see why Christmas lights fail together and house wiring doesn't) and **Kirchhoff's laws** lesson (a junction table that always balances, and a step-by-step loop walk that always sums to zero), with Kirchhoff's origin story (1845, as a student). Lessons can now hand off to more than one bench project. Three new recall questions; five glossary terms.
 - **-7** New **Computing** part: counting and accounts (tallies to khipu), Heron's rope-programmed cart (live simulation, exact geometry), punched cards (Jacquard loom simulation, Babbage, Lovelace, Hollerith), and the bootstrap ladder from ENIAC's plug cables to operating systems, with one tiny program shown at every rung. Recall check, glossary terms, lesson deep links (`#l=<lesson>`). NEETS Module 22 now "touched".
 - **-6** "See the flow: gates" — logic gates as liquid through pipes and valves, solved as a real pressure network; switchable between electricity, water and air (fluidics). Answers whether fluid and mechanical machines use the same logic.
 - **-5** NEETS coverage tracker for all 24 modules (6 partly covered, 6 touched, 12 not yet).
@@ -15,7 +16,8 @@ Builds are stamped `build YYYY.MM.DD-n` with the UTC ship time in each file's he
 
 Sources for history added this day: Wikipedia (Breadboard, Multivibrator, Photoresistor), Wikiwand (History of the LED), Computer History Museum (p-n junction, 1940), arXiv 1106.1365 (Bothe and Rossi, coincidence methods), Design World (Vollum and triggering), PS Audio (Rice and Kellogg), History.com (Baghdad battery), Atlas Obscura (Antikythera mechanism), Smithsonian MCI (Zawar zinc), EBSCO (Faraday 1831), PTTLink wiki (NEETS module list), NEETS Module 14 (Internet Archive).
 
-### Trainer (`electronics-trainer.html`) — builds 2026.11.08-1 to -5
+### Trainer (`electronics-trainer.html`) — builds 2026.11.08-1 to -6
+- **-6** **Mystery fault** challenge in break-it mode: the bench hides a fault that causes a visible symptom, you probe voltages, then accuse a part; wrong guesses are explained. Fixed: kit project 9 (Parallel Resistors) put the second resistor across the LED, which *dimmed* it; it now sits beside the first resistor and the LED brightens (10.2 → 19.6 mA).
 - **-5** **L10 flip-flop** (Eccles and Jordan, 1918): the first build that remembers. The solver now starts each transistor from its last state, which is what lets a two-state circuit hold a bit. **Era 0** card linking to the course's pre-electric computing lessons.
 - **-4** X-ray view: hidden metal strips coloured by voltage, and current streaks in every wire and part from a second solve (Kirchhoff-checked). CERN frontier card.
 - **-3** Lineage track (9 buildable projects across 7 eras, plus frontier cards); break-it mode with diagnosis; live readings. Fixed: kit project 19 (Night Light) was always on — sensor was on the wrong side of the divider and its model range was unrealistic.

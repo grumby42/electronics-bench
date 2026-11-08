@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- ===================================================================
      EL500-SIM  ·  500-in-1 Electronic Lab → Mechatronics trainer
-     build 2026.11.08-5   ·   shipped 2026-11-08T12:50:09Z (UTC)
+     build 2026.11.08-6   ·   shipped 2026-11-08T19:42:20Z (UTC)
      single-file, offline, no external deps
      ==================================================================== -->
 <html lang="en">
@@ -125,6 +125,17 @@
   .diag p{font-size:13px;line-height:1.5;margin:0 0 6px;color:var(--txt)} .diag b{color:var(--copper-hot)}
   .brk-fix{margin-top:8px;background:var(--green);color:#06140c;border:0;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer}
   .seg.wrap{flex-wrap:wrap}
+  .mys-start{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;margin:0 0 10px;background:#122233;border:1px solid #2b4a66;border-radius:8px;padding:9px 11px;color:#bfe0ff;cursor:pointer}
+  .mys-start b{font-size:13px} .mys-start span{font-size:12px;color:var(--txt-dim)}
+  .mys{border:1px solid #2b4a66;border-radius:8px;background:#0f1a26;padding:9px 11px;margin:0 0 8px}
+  .mys .dh{color:#bfe0ff}
+  .probe-btn{width:100%;margin:4px 0 8px;background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;min-height:40px}
+  .probe-btn.on{border-color:#46d39a;color:#9ff0c8;background:#0b1a12}
+  .probes{display:flex;flex-wrap:wrap;gap:5px;font-size:12px;color:var(--txt-dim)}
+  .probes span{background:#0e1013;border:1px solid var(--line);border-radius:6px;padding:3px 7px;font-family:var(--mono)} .probes b{color:#9ff0c8}
+  .mres{font-size:13px;line-height:1.5;color:var(--txt);border-left:3px solid #e0b44a;padding:4px 8px;margin:8px 0}
+  .brk-fix.alt{background:var(--card);color:var(--txt);border:1px solid var(--line);margin-left:6px}
+  .warnline{color:#ffb0a4!important}
   .k-once{color:#6fd39a} .k-part{color:#e0b44a} .k-later{color:#b49cff}
   .tr-origin summary em.k-once,.tr-origin summary em.k-part,.tr-origin summary em.k-later{border-color:currentColor}
   .era{margin:14px 0}
@@ -201,7 +212,7 @@
   <button class="pw" id="powerBtn" aria-pressed="false" title="Master power (6×AA → 9V)">
     <span class="dot"></span><label>POWER</label><span class="sw"></span>
   </button>
-  <span class="badge" id="buildBadge">build 2026.11.08-5</span>
+  <span class="badge" id="buildBadge">build 2026.11.08-6</span>
 </header>
 
 <main>
@@ -546,6 +557,7 @@ let curWireColor='#eef0f2';
 function nodeOf(id){ return pts[id]?pts[id].node:null; }
 
 function clickPoint(id){
+  if(state.mystery&&state.mystery.probing&&!state.mystery.revealed){ probeAt(id); return; }
   if(state.armed){
     if(!state._a){ state._a=id; pts[id].el.classList.add('start'); return; }
     if(state._a===id){ clearArmedSel(); return; }
@@ -594,13 +606,13 @@ function drawOverlay(){
     const A=pts[w.a],Bp=pts[w.b]; if(!A||!Bp) return;
     const ln=svg('path',{d:`M${A.x} ${A.y} Q ${(A.x+Bp.x)/2} ${(A.y+Bp.y)/2 - 18} ${Bp.x} ${Bp.y}`,
       fill:'none',stroke:w.color,'stroke-width':3.2,'stroke-linecap':'round',opacity:.92});
-    if(state.brk.rmW.has(i)){ ln.setAttribute('stroke','#d24b4b'); ln.setAttribute('stroke-dasharray','5 5'); ln.setAttribute('opacity','.55'); }
+    if(state.brk.rmW.has(i)&&!hidden()){ ln.setAttribute('stroke','#d24b4b'); ln.setAttribute('stroke-dasharray','5 5'); ln.setAttribute('opacity','.55'); }
     ln.style.cursor='pointer'; ln.addEventListener('click',ev=>{ev.stopPropagation(); clearBrk(); state.wires.splice(i,1); recompute(); drawOverlay();});
     gWires.appendChild(ln);
   });
   state.parts.forEach((p,i)=>{
     const g=drawPartGlyph(p);
-    if(g){ if(state.brk.rmP.has(p.id)) g.setAttribute('opacity','.22');
+    if(g){ if(state.brk.rmP.has(p.id)&&!hidden()) g.setAttribute('opacity','.22');
       g.style.cursor='pointer'; g.addEventListener('click',ev=>{ev.stopPropagation(); clearBrk(); state.parts.splice(i,1); recompute(); drawOverlay();}); gParts.appendChild(g); }
   });
   drawBreakMarks();
@@ -608,6 +620,10 @@ function drawOverlay(){
   drawXray();
 }
 function drawBreakMarks(){
+  if(state.mystery){ state.mystery.probes.forEach(p=>{ const q=pts[p.id]; if(!q) return; const t=p.v==null?'—':p.v.toFixed(1)+'V';
+      gParts.appendChild(svg('rect',{x:q.x-17,y:q.y-24,width:34,height:14,rx:4,fill:'#0b1a12',stroke:'#46d39a'}));
+      const tx=svg('text',{x:q.x,y:q.y-14,'text-anchor':'middle','font-size':9.5,fill:'#9ff0c8','font-family':'ui-monospace,monospace'}); tx.textContent=t; gParts.appendChild(tx); });
+    if(!state.mystery.revealed) return; }
   const mark=(x,y,label)=>{ const t=svg('text',{x,y:y+5,'text-anchor':'middle','font-size':16,'font-weight':700,fill:'#ff5a4a'}); t.textContent=label; gParts.appendChild(t); };
   state.parts.forEach(p=>{
     const A=p.type==='npn'?p.c:p.a, B=p.type==='npn'?p.e:p.b; if(!pts[A]||!pts[B]) return; const m=midpoint(A,B);
@@ -834,13 +850,12 @@ const PROJECTS={
        LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
      }},
   9:{num:9,title:"Parallel Resistors",kind:"analog",
-     desc:"Switch drops a second 470Ω in parallel — total resistance falls, the LED gets brighter.",
+     desc:"Switch down adds a second 680Ω side by side with the first. Two paths share the work, total resistance halves, and the LED gets brighter.",
      controls:["sw"],
-     build(){ // V6 → R(series 270) → node M → LED → neg ; M also → R470 to gnd-ish? show parallel into the LED branch
-       W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B6','bb:D6',270);
-       W('bb:D6','bb:F11','#4a78d2'); LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
-       // parallel R across LED via switch (down = added) — lowers branch resistance, more current overall
-       W('bb:F11','sp:73','#eef0f2'); R('sp:74','bb:Q11',470); W('bb:Q11','bb:L11','#e8c84a');
+     build(){ // V6 → R1 680 → LED → neg ; switch down connects R2 680 from V6 to the same node, in parallel with R1
+       W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B6','bb:D6',680);
+       W('bb:D7','bb:F11','#4a78d2'); LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
+       W('pw:V6:1','sp:73','#d24b4b'); R('sp:74','bb:D8',680);   // down = R2 joins R1's output node: R1 ∥ R2 = 340Ω
      }},
   10:{num:10,title:"Meet the Diode",kind:"analog",
      desc:"Forward bias lights the LED; flip the switch to reverse the diode and it blocks current.",
@@ -957,7 +972,7 @@ powerBtn.addEventListener('click',()=>{ state.power=!state.power; if(!state.powe
   recompute(); });
 
 /* clear / free */
-document.getElementById('clearBtn').onclick=()=>{ clearBrk(); state.npnMemo={}; state.wires=[]; state.parts=[]; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); recompute(); drawOverlay(); };
+document.getElementById('clearBtn').onclick=()=>{ clearBrk(); state.npnMemo={}; state.mystery=null; state.wires=[]; state.parts=[]; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); recompute(); drawOverlay(); };
 document.getElementById('freeBtn').onclick=()=>{ state.mode='free'; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); setHint(defaultHint); recompute(); };
 
 /* tabs (desktop + mobile share handler) */
@@ -1244,7 +1259,71 @@ function diagnosis(){
   let tab='<table class="trtab"><tr><th>LED</th><th>Before</th><th>After</th></tr>'+rows.map(r=>`<tr><td>${r.name}</td><td class="num">${r.b.toFixed(1)} mA</td><td class="num">${r.a.toFixed(1)} mA</td></tr>`).join('')+'</table>';
   return `<div class="diag"><div class="dh">${head}</div><p><b>Where:</b> ${tName}.</p><p><b>What happened:</b> ${how}</p><p><b>Why:</b> ${why}</p><p><b>How you’d find it:</b> ${meter}</p>${rows.length?tab:''}</div>`;
 }
-function setBreak(kind,id){ clearBrk(); state.brk[kind].add(id); state.lastBreak={kind,id}; recompute(); drawOverlay(); renderProjCtl(true); }
+
+/* =======================================================================
+   MYSTERY FAULT — a hidden fault you find with a voltage probe (NEETS 21)
+   ===================================================================== */
+const hidden=()=>state.mystery&&!state.mystery.revealed;
+function symptomOf(kind,id){ // does this fault visibly change the circuit right now?
+  const brk={rmP:new Set(),shP:new Set(),rmW:new Set()}; brk[kind].add(id);
+  const a=computeSolution(NOBRK), b=computeSolution(brk);
+  const leds=ledList().some(p=>{ const x=ledmA(p,a), y=ledmA(p,b); return Math.abs(x-y)>Math.max(1,0.2*x); });
+  const P=PROJECTS[state.project]; const meter=P&&P.meter&&Math.abs((a.res.v[a.find('spn:59')]??0)-(b.res.v[b.find('spn:59')]??0))>0.3;
+  return leds||meter;
+}
+function mysteryCandidates(){ const c=[]; state.parts.forEach(p=>{ c.push(['rmP',p.id]); c.push(['shP',p.id]); }); state.wires.forEach((w,i)=>c.push(['rmW',i])); return c; }
+function startMystery(forced){
+  if(!state.power){ state.mysteryMsg='Switch POWER on first — a fault only shows when current is trying to flow.'; renderProjCtl(true); return; }
+  clearBrk();
+  const pool=forced?[forced]:mysteryCandidates().filter(([k,id])=>symptomOf(k,id));
+  if(!pool.length){ state.mysteryMsg='Nothing is switched on, so no fault would show. Set the controls so the circuit is doing something (hold a key, change the light), then try again.'; renderProjCtl(true); return; }
+  const [kind,id]=pool[Math.floor(Math.random()*pool.length)];
+  state.mysteryMsg=''; state.mystery={kind,id,probes:[],wrong:0,revealed:false,probing:true,result:''};
+  state.brk[kind].add(id); recompute(); drawOverlay(); renderProjCtl(true);
+}
+function probeAt(id){
+  const sol=state.lastSol; const k=sol&&pts[id]?sol.find(pts[id].node):null; const v=(k!=null&&k in sol.res.v)?sol.res.v[k]:null;
+  state.mystery.probes=state.mystery.probes.filter(p=>p.id!==id); state.mystery.probes.push({id,v});
+  drawOverlay(); renderProjCtl(true);
+}
+function accuse(kind,id){
+  const m=state.mystery; if(!m||m.revealed) return;
+  if(kind===m.kind&&id===m.id){ m.revealed=true; m.probing=false; state.lastBreak={kind,id};
+    m.result=`<b>Found it</b> with ${m.probes.length} probe reading${m.probes.length===1?'':'s'}${m.wrong?` and ${m.wrong} wrong guess${m.wrong===1?'':'es'}`:' on the first guess'}.`; }
+  else { m.wrong++; const what=kind==='rmW'?'that wire isn’t cut':kind==='shP'?'that part isn’t shorted':'that part isn’t open';
+    m.result=`Not quite — ${what}. Probe on either side of your suspect: an <b>open</b> part has the push on one side and nothing on the other; a <b>shorted</b> part has the same voltage on both sides.`; }
+  drawOverlay(); renderProjCtl(true);
+}
+function revealMystery(){ const m=state.mystery; if(!m) return; m.revealed=true; m.probing=false; state.lastBreak={kind:m.kind,id:m.id}; m.result='Revealed. Read the diagnosis below, then try another — you’ll find the next one faster.'; drawOverlay(); renderProjCtl(true); }
+function endMystery(){ state.mystery=null; clearBrk(); recompute(); drawOverlay(); renderProjCtl(true); }
+function mysteryPanel(body){
+  const m=state.mystery;
+  const fmtV=v=>v==null?'<i>no connection</i>':v.toFixed(2)+' V';
+  let html=`<div class="mys"><div class="dh">Mystery fault: ${m.revealed?'solved':'something is wrong with this circuit'}</div>
+    <p class="trnote">One part is open or shorted, or one wire is cut. Probe holes to read their voltage against the − rail (the black lead clipped to ground), then accuse a suspect.</p>
+    <p class="trnote"><b>Technician’s method:</b> start at the supply and follow the path. Where the voltage drops from the full push to nothing across one part while no current flows, that part is open. Same voltage on both sides of a part that should drop some? Shorted.</p>`;
+  if(!m.revealed) html+=`<button class="probe-btn${m.probing?' on':''}" data-act="probe">${m.probing?'Probe ON — tap any hole on the board':'Probe OFF — tap to turn on'}</button>`;
+  html+=`<div class="probes">${m.probes.length?m.probes.map(p=>`<span>${hole(p.id)}: <b>${fmtV(p.v)}</b></span>`).join(''):'<i>No readings yet.</i>'}</div>`;
+  if(m.result) html+=`<p class="mres">${m.result}</p>`;
+  html+='</div>';
+  body.insertAdjacentHTML('beforeend',html);
+  body.querySelector('[data-act=probe]')?.addEventListener('click',()=>{ m.probing=!m.probing; renderProjCtl(true); });
+  if(!m.revealed){
+    const list=document.createElement('div'); list.className='brk-list';
+    const row=(label,loc,btns)=>{ const r=document.createElement('div'); r.className='brk-row'; r.innerHTML=`<div><b>${label}</b><small>${loc}</small></div>`; const g=document.createElement('div'); g.className='brk-btns';
+      btns.forEach(([t,kind,id])=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=()=>accuse(kind,id); g.appendChild(b); }); r.appendChild(g); list.appendChild(r); };
+    state.parts.forEach(p=>row(partLabel(p),partLoc(p),[['Open?','rmP',p.id],['Shorted?','shP',p.id]]));
+    state.wires.forEach((w,i)=>row('Wire',hole(w.a)+' → '+hole(w.b),[['Cut?','rmW',i]]));
+    const h4=document.createElement('p'); h4.className='trnote'; h4.innerHTML='<b>Accuse a suspect:</b>'; body.appendChild(h4); body.appendChild(list);
+    const give=document.createElement('button'); give.className='brk-fix alt'; give.textContent='Give up and reveal'; give.onclick=revealMystery; body.appendChild(give);
+  } else {
+    const out=document.createElement('div'); out.innerHTML=diagnosis(); body.appendChild(out);
+    const again=document.createElement('button'); again.className='brk-fix'; again.textContent='Repair it and try another'; again.onclick=()=>{ endMystery(); startMystery(); }; body.appendChild(again);
+  }
+  const done=document.createElement('button'); done.className='brk-fix alt'; done.textContent='Repair and stop'; done.onclick=endMystery; body.appendChild(done);
+}
+
+function setBreak(kind,id){ state.mystery=null; clearBrk(); state.brk[kind].add(id); state.lastBreak={kind,id}; recompute(); drawOverlay(); renderProjCtl(true); }
 function breakPanel(keepOpen){
   const P=PROJECTS[state.project]; const d=document.createElement('details'); d.className='breakit';
   if(keepOpen||state.lastBreak) d.open=true;
@@ -1253,7 +1332,10 @@ function breakPanel(keepOpen){
   if(!P||P.kind!=='analog'||!state.parts.length){
     body.innerHTML='<p class="trnote">This project runs as a behaviour model (its wiring isn’t drawn on the board yet), so there is nothing physical to remove. Break-it works on every wired project; full wiring for this one is queued.</p>';
     d.appendChild(body); return d; }
+  if(state.mystery){ mysteryPanel(body); d.appendChild(body); return d; }
   body.innerHTML='<p class="trnote">Remove a part, short it out, or cut a wire. The circuit is re-solved and compared with the working version. One fault at a time, just like real troubleshooting.</p>';
+  const mb=document.createElement('button'); mb.className='mys-start'; mb.innerHTML='<b>Mystery fault</b><span>The trainer hides one fault. Find it with a voltage probe.</span>'; mb.onclick=()=>startMystery(); body.appendChild(mb);
+  if(state.mysteryMsg){ const n=document.createElement('p'); n.className='trnote warnline'; n.textContent=state.mysteryMsg; body.appendChild(n); }
   const list=document.createElement('div'); list.className='brk-list';
   const row=(label,loc,btns)=>{ const r=document.createElement('div'); r.className='brk-row'; r.innerHTML=`<div><b>${label}</b><small>${loc}</small></div>`; const g=document.createElement('div'); g.className='brk-btns';
     btns.forEach(([t,kind,id])=>{ const b=document.createElement('button'); b.textContent=t; if(state.brk[kind].has(id)) b.classList.add('on'); b.onclick=()=>setBreak(kind,id); g.appendChild(b); }); r.appendChild(g); list.appendChild(r); };
@@ -1267,7 +1349,7 @@ function breakPanel(keepOpen){
 function choiceRows(box,P){
   (P.choices||[]).forEach(c=>{ const r=ctlRow(c.label); const seg=document.createElement('div'); seg.className='seg wrap';
     c.opts.forEach(([v,t])=>{ const b=document.createElement('button'); b.textContent=t; b.className=String(state.ctl[c.key])===String(v)?'on':'';
-      b.onclick=()=>{ state.ctl[c.key]=v; clearBrk(); state.npnMemo={}; state.wires=[]; state.parts=[]; P.build(); drawOverlay(); renderProjCtl(); };
+      b.onclick=()=>{ state.ctl[c.key]=v; clearBrk(); state.npnMemo={}; state.mystery=null; state.wires=[]; state.parts=[]; P.build(); drawOverlay(); renderProjCtl(); };
       seg.appendChild(b); }); r.appendChild(seg); box.appendChild(r); });
 }
 
@@ -1335,7 +1417,7 @@ function renderProjList(){
 }
 function loadProject(num){
   const P=PROJECTS[num]; if(!P) return;
-  state.wires=[]; state.parts=[]; state.project=num; state.armed=null; state.pending=null; clearArmedSel(); clearBrk(); state.npnMemo={};
+  state.wires=[]; state.parts=[]; state.project=num; state.armed=null; state.pending=null; clearArmedSel(); clearBrk(); state.npnMemo={}; state.mystery=null; state.mysteryMsg='';
   state.ctl={sw:'down',s1:false,s2:false,pot:0.5,light:0.7,tuning:0.5};
   (P.choices||[]).forEach(c=>{ state.ctl[c.key]=c.def; }); Object.assign(state.ctl,P.ctlDefaults||{});
   stopDynamic();
@@ -1413,7 +1495,7 @@ function renderMecha(){ const l=document.getElementById('mechaList'); l.innerHTM
    ===================================================================== */
 buildPoints(); renderPanel(); drawOverlay();
 buildWireChips(); fillResVals(); drawBinGlyphs(); renderProjList(); renderMecha(); renderLineage();
-document.getElementById('buildBadge').textContent='build 2026.11.08-5';
+document.getElementById('buildBadge').textContent='build 2026.11.08-6';
 selectTab('build');
 recompute();
 /* ---- handoff from the Learn app: electronics-trainer.html#p=19&from=learn ---- */
