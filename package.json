@@ -1,0 +1,7 @@
+{
+  "name": "electronics-bench",
+  "private": true,
+  "description": "Offline, single-file electronics learning bench: a guided course and a functional 500-in-1 trainer.",
+  "scripts": { "test": "node tests/run-all.js" },
+  "devDependencies": { "jsdom": "^24.0.0" }
+}

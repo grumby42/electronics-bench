@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<!-- ===================================================================
+     EL500-SIM  ·  500-in-1 Electronic Lab → Mechatronics trainer
+     build 2026.11.08-5   ·   shipped 2026-11-08T12:50:09Z (UTC)
+     single-file, offline, no external deps
+     ==================================================================== -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3, user-scalable=yes">
+<title>500-in-1 Electronic Lab · Trainer</title>
+<style>
+  :root{
+    --bench:#14161a; --bench2:#1c1f25;
+    --panel:#c8cdd2; --panel-hi:#dde1e5; --panel-lo:#a9afb6; --recess:#9aa0a7;
+    --ink:#2a2e35; --ink-soft:#566; --silk:#3b4148;
+    --copper:#e0922f; --copper-hot:#ffcf6b; --green:#3fbf6f; --red:#d24b4b;
+    --line:#363b43; --card:#1f232a; --card-hi:#272c34;
+    --txt:#e7e9ec; --txt-dim:#9aa1aa;
+    --mono:"SF Mono",ui-monospace,"Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --cond:"Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bench);color:var(--txt);font-family:var(--sans);font-size:15px;line-height:1.45;
+       overflow:hidden;-webkit-text-size-adjust:100%}
+  button{font-family:inherit;cursor:pointer}
+  ::selection{background:var(--copper);color:#1a1206}
+
+  /* ---------- top bar ---------- */
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:linear-gradient(#1d2026,#15171c);
+         border-bottom:1px solid var(--line);flex:0 0 auto;z-index:30}
+  .brand{display:flex;flex-direction:column;line-height:1.05}
+  .brand b{font-family:var(--cond);font-weight:800;letter-spacing:.5px;font-size:18px}
+  .brand small{color:var(--txt-dim);font-size:11px;letter-spacing:.3px}
+  .grow{flex:1}
+  .pw{display:flex;align-items:center;gap:9px;background:#0e1013;border:1px solid var(--line);
+      border-radius:999px;padding:5px 12px}
+  .pw .dot{width:10px;height:10px;border-radius:50%;background:#3a3f47;box-shadow:inset 0 0 3px #000}
+  .pw.on .dot{background:var(--green);box-shadow:0 0 9px var(--green)}
+  .pw label{font-size:12px;color:var(--txt-dim);letter-spacing:.4px}
+  .sw{position:relative;width:42px;height:23px;border-radius:999px;background:#2a2f36;border:1px solid #000;transition:.18s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+             background:#cfd3d8;transition:.18s}
+  .pw.on .sw{background:#1f5a39}
+  .pw.on .sw::after{left:21px;background:#dff7e8}
+  .badge{font-family:var(--mono);font-size:10.5px;color:var(--txt-dim);border:1px solid var(--line);
+         border-radius:6px;padding:4px 8px;white-space:nowrap}
+
+  /* ---------- workspace ---------- */
+  main{display:flex;height:calc(100% - 52px)}
+  #stage{flex:1;min-width:0;position:relative;overflow:auto;background:
+        radial-gradient(120% 120% at 50% 0%,#1b1e24,#101216 70%)}
+  .stage-pad{min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:18px}
+  #kit{width:min(1040px,100%);height:auto;touch-action:manipulation}
+
+  /* ---------- side panel ---------- */
+  aside{flex:0 0 360px;background:var(--bench2);border-left:1px solid var(--line);
+        display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .tabs button{flex:1;background:none;border:0;color:var(--txt-dim);padding:12px 6px;font-size:12.5px;
+               letter-spacing:.3px;border-bottom:2px solid transparent;font-weight:600}
+  .tabs button.sel{color:var(--copper-hot);border-bottom-color:var(--copper)}
+  .pane{flex:1;overflow:auto;padding:14px}
+  .pane[hidden]{display:none}
+  h3{font-family:var(--cond);font-weight:800;letter-spacing:.4px;font-size:13px;color:var(--txt-dim);
+     text-transform:uppercase;margin:2px 0 10px}
+  .hint{font-size:12.5px;color:var(--txt-dim);margin:0 0 12px}
+
+  /* parts bin */
+  .group{margin-bottom:14px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;
+        font-size:12px;display:flex;align-items:center;gap:7px;color:var(--txt)}
+  .chip:hover{border-color:#4a525c;background:var(--card-hi)}
+  .chip.armed{border-color:var(--copper);box-shadow:0 0 0 1px var(--copper) inset;color:var(--copper-hot)}
+  .chip .g{width:26px;height:18px;display:grid;place-items:center}
+  .chip svg{display:block}
+  select.val{background:#0e1013;color:var(--txt);border:1px solid var(--line);border-radius:6px;
+             font-family:var(--mono);font-size:11px;padding:3px 4px}
+
+  /* projects */
+  .proj{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+        border-radius:10px;padding:11px 12px;margin-bottom:9px;color:var(--txt)}
+  .proj:hover{border-color:#4a525c;background:var(--card-hi)}
+  .proj.sel{border-color:var(--copper);box-shadow:0 0 0 1px var(--copper) inset}
+  .proj .row{display:flex;align-items:center;gap:9px}
+  .proj .num{font-family:var(--mono);font-size:11px;color:var(--copper);min-width:30px}
+  .proj .t{font-weight:600;font-size:13.5px}
+  .proj .d{font-size:12px;color:var(--txt-dim);margin-top:5px}
+  .tag{font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:5px;margin-left:auto}
+  .tag.live{background:#13351f;color:var(--green);border:1px solid #1f5a39}
+  .tag.soon{background:#2a2e35;color:var(--txt-dim);border:1px solid var(--line)}
+  .controls{background:#0e1013;border:1px solid var(--line);border-radius:10px;padding:12px;margin:4px 0 14px}
+  .controls h4{margin:0 0 9px;font-size:12px;color:var(--copper-hot);font-family:var(--cond);letter-spacing:.4px;text-transform:uppercase}
+  .tr-origin{margin:0 0 12px;border:1px solid var(--line);border-left:3px solid var(--copper);border-radius:8px;background:#16130f}
+  .tr-origin summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;padding:9px 11px;font-size:12.5px;color:var(--copper);min-height:40px}
+  .tr-origin summary em{font-style:normal;font-size:11px;color:var(--txt-dim);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+  .tr-obody{padding:0 11px 8px}
+  .tr-obody p{margin:0 0 7px;font-size:13px;line-height:1.5;color:var(--txt)}
+  .tr-obody b{color:var(--copper-hot);font-weight:600}
+  .tr-onote{color:var(--txt-dim)!important;font-style:italic}
+  .backlearn{display:inline-block;margin:0 0 10px;color:var(--copper-hot);font-size:13px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .backlearn:hover{border-color:var(--copper)}
+  .trnote{font-size:12.5px;color:var(--txt-dim);margin:4px 0 8px;line-height:1.5}
+  .trtab{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+  .trtab th,.trtab td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;color:var(--txt)}
+  .trtab th{color:var(--txt-dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .trtab td.num{font-family:var(--mono);color:var(--copper-hot)}
+  .trtab .hot{color:#ff6a5a;font-weight:600}
+  .push{font-size:13px;line-height:1.5;color:var(--txt);border-left:3px solid var(--green);padding:6px 10px;margin:10px 0;background:#10201a;border-radius:0 8px 8px 0}
+  .push b{color:var(--green)}
+  .breakit{margin:12px 0 4px;border:1px solid #5a2a24;border-radius:8px;background:#1a1110}
+  .breakit summary{cursor:pointer;padding:9px 11px;font-size:12.5px;color:#ff8a7a;min-height:40px;display:flex;align-items:center}
+  .brk-body{padding:0 11px 10px}
+  .brk-list{display:grid;gap:6px;margin:6px 0 10px}
+  .brk-row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#0e1013;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .brk-row b{font-size:12.5px;color:var(--txt);display:block} .brk-row small{font-size:11px;color:var(--txt-dim);font-family:var(--mono)}
+  .brk-btns{display:flex;gap:5px;flex-shrink:0}
+  .brk-btns button{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 9px;font-size:12px;cursor:pointer;min-height:34px}
+  .brk-btns button.on{border-color:#ff6a5a;color:#ff8a7a;background:#2a1714}
+  .diag{border:1px solid #ff6a5a;border-radius:8px;padding:10px 11px;background:#22130f;margin-top:4px}
+  .diag .dh{font-weight:700;color:#ffb0a4;margin-bottom:6px;font-size:13.5px}
+  .diag p{font-size:13px;line-height:1.5;margin:0 0 6px;color:var(--txt)} .diag b{color:var(--copper-hot)}
+  .brk-fix{margin-top:8px;background:var(--green);color:#06140c;border:0;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer}
+  .seg.wrap{flex-wrap:wrap}
+  .k-once{color:#6fd39a} .k-part{color:#e0b44a} .k-later{color:#b49cff}
+  .tr-origin summary em.k-once,.tr-origin summary em.k-part,.tr-origin summary em.k-later{border-color:currentColor}
+  .era{margin:14px 0}
+  .era-h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--copper-hot);margin:0 0 6px;font-family:var(--cond)}
+  .era-h span{color:var(--txt-dim);margin-right:6px} .era-h small{color:var(--txt-dim);text-transform:none;letter-spacing:0;margin-left:6px}
+  .fcard{border:1px dashed var(--line);border-radius:8px;padding:9px 11px;margin:6px 0;background:#121418}
+  .fcard b{color:var(--txt);font-size:13px} .fcard p{margin:4px 0 0;font-size:12.5px;line-height:1.5;color:var(--txt-dim)}
+  .primer{margin:8px 0 4px}
+  .e0links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .e0link{font-size:12.5px;color:var(--copper-hot);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:#16130f}
+  .e0link:hover{border-color:var(--copper)}
+  .ctl{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:12.5px}
+  .ctl label{min-width:96px;color:var(--txt-dim)}
+  .ctl input[type=range]{flex:1;accent-color:var(--copper)}
+  .ctl .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .ctl .seg button{background:#171a20;border:0;color:var(--txt-dim);padding:6px 12px;font-size:12px}
+  .ctl .seg button.on{background:var(--copper);color:#1a1206;font-weight:700}
+  .keybtn{background:#171a20;border:1px solid var(--line);border-radius:8px;color:var(--txt);
+          padding:8px 14px;font-size:12.5px;user-select:none}
+  .keybtn:active,.keybtn.held{background:var(--copper);color:#1a1206;border-color:var(--copper)}
+  .readout{font-family:var(--mono);font-size:12px;color:var(--green);background:#0a0c0e;border:1px solid var(--line);
+           border-radius:7px;padding:8px 10px;margin-top:8px;white-space:pre-line;min-height:18px}
+  .toolbar{display:flex;gap:8px;margin-bottom:12px}
+  .toolbar button{flex:1;background:#171a20;border:1px solid var(--line);border-radius:8px;color:var(--txt);
+                  padding:9px;font-size:12px}
+  .toolbar button:hover{border-color:#4a525c}
+  .toolbar button.on{border-color:#6ab8ff;color:#bfe0ff;background:#122233}
+  .xlegend{font-size:12.5px;line-height:1.5;color:var(--txt-dim);border:1px solid #2b4a66;background:#0f1a26;border-radius:8px;padding:8px 10px;margin:0 0 12px}
+  .xlegend b{color:#bfe0ff}
+  .xflow{stroke-dasharray:4 9;animation:xflow 1s linear infinite}
+  @keyframes xflow{to{stroke-dashoffset:-26}}
+  @media (prefers-reduced-motion: reduce){ .xflow{animation:none} }
+  .toolbar button.warn:hover{border-color:var(--red);color:#f3a6a6}
+
+  /* mobile tab bar (hidden on desktop) */
+  #mtabs{display:none}
+
+  /* ===== mobile / portrait ===== */
+  @media (max-width: 820px){
+    body{font-size:14px}
+    main{flex-direction:column}
+    aside{flex:1;border-left:0;border-top:1px solid var(--line);min-height:0}
+    #stage{flex:0 0 auto;max-height:44vh}
+    .stage-pad{padding:10px}
+    aside .tabs{display:none}
+    #mtabs{display:flex;position:fixed;bottom:0;left:0;right:0;background:#15171c;border-top:1px solid var(--line);
+           z-index:40}
+    #mtabs button{flex:1;background:none;border:0;color:var(--txt-dim);padding:11px 4px 14px;font-size:11px;
+                  display:flex;flex-direction:column;align-items:center;gap:3px}
+    #mtabs button.sel{color:var(--copper-hot)}
+    #mtabs .ic{font-size:17px;line-height:1}
+    .pane{padding:14px 14px 70px}
+    .badge{display:none}
+    header{padding:8px 12px;gap:10px}
+    .brand b{font-size:15px}
+  }
+  @media (max-width:380px){ aside{flex-basis:auto} }
+
+  /* svg element styling */
+  .hole{fill:#3c4148;stroke:#23272c;stroke-width:.6;cursor:pointer}
+  .hole:hover{fill:#5a626a}
+  .hole.same{fill:var(--copper);stroke:var(--copper-hot)}
+  .hole.live{fill:var(--copper)}
+  .hole.start{fill:var(--copper-hot);stroke:#fff}
+  .silk{fill:var(--silk);font-family:var(--cond);font-weight:700}
+  .silktiny{fill:#5b626a;font-family:var(--mono)}
+  .legend{fill:var(--ink-soft)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>500-IN-1 ELECTRONIC LAB</b><small>functional trainer · analog core + mechatronics roadmap</small></div>
+  <div class="grow"></div>
+  <button class="pw" id="powerBtn" aria-pressed="false" title="Master power (6×AA → 9V)">
+    <span class="dot"></span><label>POWER</label><span class="sw"></span>
+  </button>
+  <span class="badge" id="buildBadge">build 2026.11.08-5</span>
+</header>
+
+<main>
+  <div id="stage"><div class="stage-pad"><svg id="kit" viewBox="0 0 1040 770" role="img" aria-label="Electronics lab panel"></svg></div></div>
+
+  <aside>
+    <div class="tabs" role="tablist">
+      <button data-tab="build" class="sel">Build</button>
+      <button data-tab="lineage">Lineage</button>
+      <button data-tab="projects">Projects</button>
+      <button data-tab="mecha">Mechatronics</button>
+      <button data-tab="help">Guide</button>
+    </div>
+
+    <section class="pane" id="pane-build">
+      <div class="toolbar">
+        <button id="xrayBtn" aria-pressed="false" title="See the metal strips inside the board and the current moving through every wire and part">X-ray view</button>
+        <button id="freeBtn">Free-build mode</button>
+        <button id="clearBtn" class="warn">Clear board</button>
+      </div>
+      <p class="hint" id="buildHint">Tap a part to arm it, then tap two points on the panel to place it. Tap two points with no part armed to run a wire. Tap a placed item to remove it.</p>
+
+      <div id="xrayLegend" class="xlegend" hidden><b>X-ray view.</b> The bars are the metal strips hidden under the board: every hole on one bar is the same connection. Deeper colour = higher voltage. Moving streaks = current, flowing + to − (conventional direction); faster streaks mean more current. Grey bars aren’t connected to anything.</div>
+      <div id="projCtl"></div>
+
+      <div class="group"><h3>Wires</h3>
+        <div class="chips" id="wireChips"></div>
+      </div>
+      <div class="group"><h3>Resistors (Ω)</h3>
+        <div class="chips">
+          <div class="chip" data-part="res"><span class="g" id="resGlyph"></span>
+            <select class="val" id="resVal"></select></div>
+        </div>
+      </div>
+      <div class="group"><h3>Semiconductors</h3>
+        <div class="chips">
+          <div class="chip" data-part="led"><span class="g" id="ledGlyph"></span>LED</div>
+          <div class="chip" data-part="diode"><span class="g" id="dioGlyph"></span>Diode (Si)</div>
+          <div class="chip" data-part="npn"><span class="g" id="npnGlyph"></span>NPN <small style="color:var(--txt-dim)">B·C·E</small></div>
+        </div>
+      </div>
+      <div class="group"><h3>Passive</h3>
+        <div class="chips">
+          <div class="chip" data-part="cap"><span class="g" id="capGlyph"></span>Capacitor</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane" id="pane-lineage" hidden>
+      <h3>Lineage: from the first battery to today</h3>
+      <p class="hint">Build the oldest versions of the ideas behind modern electronics, then work forward. Each build grew out of the one before it. Every one is wired from kit parts and runs on the real circuit solver, so you can break it and see why it fails.</p>
+      <details class="tr-origin primer"><summary><span>How did they find their moments — and did they know?</span></summary><div class="tr-obody">
+        <p><b>How the moments came.</b> Almost never from nowhere. They came from a new instrument that showed something no one had seen (Ørsted’s needle), an argument someone wanted to win (Volta), a need someone would pay for (the telegraph, the telephone network), or years of preparation that made a small surprise meaningful (Faraday, Bardeen and Brattain). The Learn app’s “Lost, kept &amp; eureka” lesson tells those stories.</p>
+        <p><b>Did they know?</b> Three patterns, marked on every build:</p>
+        <p><span class="k-once">Knew at once</span> — Volta, Ørsted and Morse each saw immediately that they had something important, though none foresaw the modern world.</p>
+        <p><span class="k-part">Saw part of it</span> — Fleming, the relay builders and Bell Labs knew what their invention did, but not what it would become.</p>
+        <p><span class="k-later">Recognised later</span> — Boole died in 1864; his algebra ran circuits only from 1937. Maxwell died in 1879; Hertz proved his radio waves in 1887. Charles Sanders Peirce saw around 1880 that one kind of gate could build all the others, but he never published it, and Henry Sheffer published the idea independently in 1913. Being right and being recognised are often decades apart.</p>
+      </div></details>
+      <div id="lineList"></div>
+    </section>
+    <section class="pane" id="pane-projects" hidden>
+      <p class="hint">The original manual ships 254 hardware projects. Live ones auto-wire and run on this engine; the rest are listed for the roadmap and to browse the build order.</p>
+      <div id="projList"></div>
+    </section>
+
+    <section class="pane" id="pane-mecha" hidden>
+      <h3>Mechatronics expansion</h3>
+      <p class="hint">Planned modules that bolt onto the same connectivity + sim engine. Not wired yet — this is the build-2 scope, surfaced so the architecture leaves room for it.</p>
+      <div id="mechaList"></div>
+    </section>
+
+    <section class="pane" id="pane-help" hidden>
+      <h3>How it works</h3>
+      <p class="hint">This recreates the kit's <b>function</b>, not a photo. The panel exposes the same connection points as the real lab: six stepped battery taps (V1=1.5 V … V6=9 V), the negative rail, the breadboard (rows A–V, columns 1–30, every block of five holes is one node), and the fixed modules with their numbered spring terminals.</p>
+      <p class="hint"><b>Live nodes.</b> Hover or tap-hold any point to see every point it is electrically tied to glow amber — that is the union-find node engine the kit teaches you to reason about.</p>
+      <p class="hint"><b>Simulation.</b> Switch on power and the analog solver (nodal analysis with diode/LED forward-drop and transistor-as-switch models) computes real node voltages every change, so LED brightness, the meter and tone respond to what you actually wired. Capacitor-timed circuits (multivibrator, oscillators) use behavioral timing models.</p>
+      <p class="hint"><b>Two layouts.</b> Desktop puts the panel beside the bins; portrait phones stack the panel over a bottom tab bar and scale the SVG to fit. Pinch-zoom is enabled.</p>
+    </section>
+  </aside>
+</main>
+
+<nav id="mtabs">
+  <button data-tab="build" class="sel"><span class="ic">⚙</span>Build</button>
+  <button data-tab="lineage"><span class="ic">⟿</span>Lineage</button>
+  <button data-tab="projects"><span class="ic">▦</span>Projects</button>
+  <button data-tab="mecha"><span class="ic">🤖</span>Mecha</button>
+  <button data-tab="help"><span class="ic">?</span>Guide</button>
+</nav>
+
+<script>
+"use strict";
+/* =======================================================================
+   1. SOLVER  (validated headless before embedding)
+   ===================================================================== */
+function solveDC(nodeKeys, fixed, resistors, isources){
+  isources = isources||[];
+  const idx={}, free=[];
+  nodeKeys.forEach(k=>{ if(!(k in fixed)){ idx[k]=free.length; free.push(k); } });
+  const n=free.length; const v={}; for(const k in fixed) v[k]=fixed[k];
+  if(n===0) return v;
+  const G=Array.from({length:n},()=>new Array(n).fill(0)), I=new Array(n).fill(0);
+  for(let i=0;i<n;i++) G[i][i]+=1e-12;
+  for(const r of resistors){
+    const ai=(r.a in fixed)?-1:idx[r.a], bi=(r.b in fixed)?-1:idx[r.b], g=r.g;
+    if(ai===undefined||bi===undefined) continue;
+    if(ai>=0) G[ai][ai]+=g; if(bi>=0) G[bi][bi]+=g;
+    if(ai>=0&&bi>=0){ G[ai][bi]-=g; G[bi][ai]-=g; }
+    if(ai>=0&&bi<0) I[ai]+=g*fixed[r.b];
+    if(bi>=0&&ai<0) I[bi]+=g*fixed[r.a];
+  }
+  for(const s of isources){ const i=idx[s.node]; if(i!==undefined) I[i]+=s.amps; }
+  for(let col=0;col<n;col++){
+    let piv=col; for(let r=col+1;r<n;r++) if(Math.abs(G[r][col])>Math.abs(G[piv][col])) piv=r;
+    [G[col],G[piv]]=[G[piv],G[col]]; [I[col],I[piv]]=[I[piv],I[col]];
+    const d=G[col][col]||1e-18;
+    for(let r=0;r<n;r++){ if(r===col) continue; const f=G[r][col]/d; for(let c=col;c<n;c++) G[r][c]-=f*G[col][c]; I[r]-=f*I[col]; }
+  }
+  for(let i=0;i<n;i++) v[free[i]]=I[i]/(G[i][i]||1e-18);
+  return v;
+}
+// resistors fixed; diodes [{a(anode),b(cathode),vth,ron}]; transistors [{b,c,e,von,ron}] NPN switch
+function solveCircuit(nodeKeys, fixed, baseR, diodes, npns){
+  diodes=diodes||[]; npns=npns||[];
+  let dOn=diodes.map(()=>false), tOn=npns.map(t=>!!t.init), v={}; // transistors may start from their last state: that is what lets a flip-flop remember
+  for(let it=0;it<90;it++){
+    const R=[...baseR], CS=[];
+    diodes.forEach((d,i)=>{ if(dOn[i]){ const g=1/d.ron; R.push({a:d.a,b:d.b,g}); CS.push({node:d.a,amps:g*d.vth},{node:d.b,amps:-g*d.vth}); }});
+    npns.forEach((t,i)=>{ if(tOn[i]) R.push({a:t.c,b:t.e,g:1/t.ron}); });
+    v=solveDC(nodeKeys,fixed,R,CS);
+    let ch=false;
+    diodes.forEach((d,i)=>{ const vab=(v[d.a]??0)-(v[d.b]??0); const want=dOn[i]?(vab>d.vth*0.3):(vab>d.vth); if(want!==dOn[i]){dOn[i]=want;ch=true;} });
+    npns.forEach((t,i)=>{ const vbe=(v[t.b]??0)-(v[t.e]??0); const want=vbe>t.von; if(want!==tOn[i]){tOn[i]=want;ch=true;} });
+    if(!ch) break;
+  }
+  return {v, diodeStates:dOn, npnStates:tOn};
+}
+
+/* =======================================================================
+   2. PANEL GEOMETRY  — connection points + SVG render
+   ===================================================================== */
+const SVG_NS="http://www.w3.org/2000/svg";
+const kit=document.getElementById('kit');
+const ROWS=["A","B","C","D","E","F","G","H","J","K","L","M","N","P","Q","R","S","T","U","V"]; //20, no I/O
+const COLS=30;
+const pts={};            // id -> {x,y,node, el, label}
+function blockOf(col){ return Math.floor((col-1)/5); }
+
+function addPt(id, x, y, node, kind){
+  pts[id]={id,x,y,node,kind};
+}
+function buildPoints(){
+  // power rail: 6 taps × 5 holes, across the top
+  const railY=58, x0=470, dx=14, gap=24;
+  for(let v=1;v<=6;v++){
+    for(let h=0;h<5;h++){
+      addPt(`pw:V${v}:${h}`, x0+(v-1)*(5*dx+gap)+h*dx, railY, `pw:V${v}`, 'rail');
+    }
+  }
+  // negative rail (single node), a strip of holes along the very bottom of breadboard area
+  // breadboard geometry
+  const bbX=120, bbY=140, cell=27, rowH=27;
+  window.BB={bbX,bbY,cell,rowH};
+  for(let ri=0;ri<ROWS.length;ri++){
+    const r=ROWS[ri];
+    for(let c=1;c<=COLS;c++){
+      const blk=blockOf(c);
+      const x=bbX + (c-1)*cell + blk*8;     // small gap between blocks
+      const y=bbY + ri*rowH;
+      addPt(`bb:${r}${c}`, x, y, `bbn:${r}:${blk}`, 'hole');
+    }
+  }
+  const negY=bbY+ROWS.length*rowH+8;
+  window.BB.negY=negY;
+  for(let c=1;c<=COLS;c++){ const blk=blockOf(c); addPt(`pw:N:${c}`, bbX+(c-1)*cell+blk*8, negY, 'pw:N','neg'); }
+
+  // ---- modules row ----
+  const modY=negY+70;
+  window.BB.modY=modY;
+  // 8 LEDs each with anode (+) & cathode (-) spring; LED1 also aliased to springs 15/16
+  for(let i=1;i<=8;i++){
+    const lx=150+(i-1)*70;
+    addPt(`sp:led${i}a`, lx, modY, `spn:led${i}a`, 'spring');
+    addPt(`sp:led${i}c`, lx, modY+30, `spn:led${i}c`, 'spring');
+  }
+  // CdS cell ends (springs 19/20)
+  addPt('sp:19', 720, modY, 'spn:19','spring');
+  addPt('sp:20', 720, modY+30, 'spn:20','spring');
+  // long-wire terminals 21/22
+  addPt('sp:21', 790, modY, 'spn:21','spring');
+  addPt('sp:22', 790, modY+30, 'spn:22','spring');
+  // DPDT switch: common up/down poles 72/73/74 (72 up, 74 down, 73 common)
+  addPt('sp:72', 470, modY, 'spn:72','spring');
+  addPt('sp:73', 500, modY+15, 'spn:73','spring');
+  addPt('sp:74', 470, modY+30, 'spn:74','spring');
+  // keys: S1 = 89/90, S2 = 87/88
+  addPt('sp:89', 560, modY, 'spn:89','spring');
+  addPt('sp:90', 560, modY+30, 'spn:90','spring');
+  addPt('sp:87', 620, modY, 'spn:87','spring');
+  addPt('sp:88', 620, modY+30, 'spn:88','spring');
+  // control volume pot 58(end) 59(wiper) 60(end)
+  addPt('sp:58', 860, modY, 'spn:58','spring');
+  addPt('sp:59', 890, modY+15, 'spn:59','spring');
+  addPt('sp:60', 860, modY+30, 'spn:60','spring');
+  // speaker / OPT terminals 64..68 (we expose 64,68 as the two speaker leads)
+  addPt('sp:64', 960, modY, 'spn:64','spring');
+  addPt('sp:68', 960, modY+30, 'spn:68','spring');
+  // terminals T1/T2 = 15/16 reuse as generic (also LED1)
+  // (LED1 springs already created; aliases handled in projects)
+}
+
+/* ---- SVG drawing helpers ---- */
+function svg(tag,attrs){ const e=document.createElementNS(SVG_NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function text(x,y,str,cls,size,anchor){ const t=svg('text',{x,y,'font-size':size||11,'text-anchor':anchor||'middle'}); t.setAttribute('class',cls||'silk'); t.textContent=str; return t; }
+
+const gWires=svg('g',{}), gParts=svg('g',{}), gPts=svg('g',{}), gPanel=svg('g',{}), gXray=svg('g',{class:'xray'}), gFlow=svg('g',{class:'xflowg'});
+function renderPanel(){
+  kit.innerHTML='';
+  // molded panel background
+  kit.appendChild(svg('rect',{x:8,y:8,width:1024,height:754,rx:22,fill:'#bcc1c6'}));
+  kit.appendChild(svg('rect',{x:8,y:8,width:1024,height:754,rx:22,fill:'none',stroke:'#8e949b','stroke-width':2}));
+  kit.appendChild(svg('rect',{x:20,y:20,width:1000,height:730,rx:16,fill:'url(#pg)'}));
+  // gradient + glow defs
+  const defs=svg('defs',{});
+  defs.innerHTML=`<linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d7dbdf"/><stop offset="1" stop-color="#b3b9bf"/></linearGradient>
+    <radialGradient id="ledg"><stop offset="0" stop-color="#fff3cf"/><stop offset="1" stop-color="#e0922f"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+  kit.appendChild(defs);
+
+  // title silk
+  kit.appendChild(text(40,42,"500 in ONE  ·  ELECTRONIC LAB",'silk',20,'start'));
+  kit.appendChild(text(1000,42,"MAXITRONIX-STYLE",'silktiny',11,'end'));
+
+  // ---- power rail housing ----
+  kit.appendChild(svg('rect',{x:455,y:40,width:565,height:42,rx:8,fill:'#cdd2d6',stroke:'#9aa0a7'}));
+  kit.appendChild(text(462,64,"+ BATTERY  V1…V6",'silk',12,'start'));
+  for(let v=1;v<=6;v++){
+    const p0=pts[`pw:V${v}:0`];
+    kit.appendChild(text(p0.x-7, railLabelY(), `V${v}`,'silktiny',10,'start'));
+    kit.appendChild(text(p0.x-7, railLabelY()+11, `${(1.5*v).toFixed(1)}V`,'silktiny',8,'start'));
+  }
+  // ---- breadboard housing ----
+  const B=window.BB;
+  kit.appendChild(svg('rect',{x:B.bbX-30,y:B.bbY-22,width:COLS*B.cell+5*8+50,height:ROWS.length*B.rowH+30,rx:10,fill:'#c4c9ce',stroke:'#9aa0a7'}));
+  // row labels
+  for(let ri=0;ri<ROWS.length;ri++){
+    kit.appendChild(text(B.bbX-16,B.bbY+ri*B.rowH+4,ROWS[ri],'silktiny',10));
+    kit.appendChild(text(B.bbX+COLS*B.cell+5*8+8,B.bbY+ri*B.rowH+4,ROWS[ri],'silktiny',10));
+  }
+  // col numbers (1..30, label odd)
+  for(let c=1;c<=COLS;c+=2){ const p=pts[`bb:A${c}`]; kit.appendChild(text(p.x,B.bbY-8,c,'silktiny',8)); }
+  // negative rail housing
+  kit.appendChild(svg('rect',{x:B.bbX-30,y:B.negY-12,width:COLS*B.cell+5*8+50,height:24,rx:6,fill:'#cdd2d6',stroke:'#9aa0a7'}));
+  kit.appendChild(text(B.bbX-20,B.negY+4,"–",'silk',14,'start'));
+
+  // ---- module housings + labels ----
+  drawModules();
+
+  // layered groups
+  kit.appendChild(gPanel); kit.appendChild(gXray); kit.appendChild(gWires); kit.appendChild(gParts); kit.appendChild(gFlow); kit.appendChild(gPts);
+  renderPoints();
+}
+function railLabelY(){ return 50; }
+
+function drawModules(){
+  const B=window.BB, modY=B.modY;
+  // LED bank housing
+  kit.appendChild(svg('rect',{x:130,y:modY-26,width:8*70-30,height:84,rx:9,fill:'#c4c9ce',stroke:'#9aa0a7'}));
+  kit.appendChild(text(140,modY-12,"LEDs  1–8",'silk',12,'start'));
+  for(let i=1;i<=8;i++){
+    const a=pts[`sp:led${i}a`];
+    const led=svg('circle',{cx:a.x,cy:modY-2,r:8,fill:'#5b6168',stroke:'#3a3f47','stroke-width':1.5});
+    led.setAttribute('id',`ledlamp${i}`); gPanel.appendChild(led);
+    kit.appendChild(text(a.x,modY+50,`${i}`,'silktiny',9));
+    kit.appendChild(text(a.x-13,modY+3,"+",'silktiny',9,'start'));
+    kit.appendChild(text(a.x-13,modY+33,"–",'silktiny',9,'start'));
+  }
+  // CdS
+  modHouse(700,modY-26,80,84,"CdS");
+  const c=pts['sp:19']; const cds=svg('circle',{cx:c.x,cy:modY+15,r:11,fill:'#3a3024',stroke:'#222','stroke-width':1.5}); cds.id='cdsLamp'; gPanel.appendChild(cds);
+  // long-wire terminals
+  modHouse(770,modY-26,60,84,"T 21/22");
+  // switch
+  modHouse(440,modY-26,90,84,"SWITCH");
+  kit.appendChild(text(452,modY+4,"↑72",'silktiny',8,'start'));
+  kit.appendChild(text(452,modY+34,"↓74",'silktiny',8,'start'));
+  kit.appendChild(text(505,modY+19,"73",'silktiny',8,'start'));
+  // keys
+  modHouse(545,modY-26,140,84,"KEYS  S1 · S2");
+  kit.appendChild(text(560,modY+50,"S1",'silktiny',9));
+  kit.appendChild(text(620,modY+50,"S2",'silktiny',9));
+  // control volume
+  modHouse(845,modY-26,80,84,"CONTROL VOL");
+  const pot=svg('circle',{cx:872,cy:modY+15,r:13,fill:'#2c3036',stroke:'#1a1d22','stroke-width':2}); gPanel.appendChild(pot);
+  const knob=svg('line',{x1:872,y1:modY+15,x2:872,y2:modY+4,stroke:'#cfd3d8','stroke-width':2}); knob.id='potKnob'; gPanel.appendChild(knob);
+  // speaker
+  modHouse(935,modY-26,80,84,"SPEAKER");
+  const sp=svg('circle',{cx:973,cy:modY+15,r:16,fill:'#2a2e33',stroke:'#1a1d22','stroke-width':2}); sp.id='spkr'; gPanel.appendChild(sp);
+  gPanel.appendChild(svg('circle',{cx:973,cy:modY+15,r:6,fill:'#3a3f47'}));
+
+  // analog meter (top-right)
+  meterHouse();
+}
+function modHouse(x,y,w,h,label){
+  kit.appendChild(svg('rect',{x,y,width:w,height:h,rx:9,fill:'#c4c9ce',stroke:'#9aa0a7'}));
+  kit.appendChild(text(x+8,y+14,label,'silk',11,'start'));
+}
+function meterHouse(){
+  const mx=860,my=120,w=160,h=70;
+  kit.appendChild(svg('rect',{x:mx,y:my,width:w,height:h,rx:8,fill:'#e9ebed',stroke:'#9aa0a7'}));
+  kit.appendChild(text(mx+8,my+14,"VOLTS",'silktiny',9,'start'));
+  for(let i=0;i<=4;i++){ const a=-Math.PI*0.75+i*(Math.PI*0.5/2); const cx=mx+w/2,cy=my+h-8;
+    kit.appendChild(svg('line',{x1:cx+Math.cos(a)*46,y1:cy+Math.sin(a)*46,x2:cx+Math.cos(a)*52,y2:cy+Math.sin(a)*52,stroke:'#888'})); }
+  const ndl=svg('line',{x1:mx+w/2,y1:my+h-8,x2:mx+w/2,y2:my+12,stroke:'#d24b4b','stroke-width':2}); ndl.id='needle'; gPanel.appendChild(ndl);
+}
+
+function renderPoints(){
+  gPts.innerHTML='';
+  for(const id in pts){
+    const p=pts[id];
+    const r = p.kind==='hole'||p.kind==='neg' ? 4 : 5;
+    const el=svg('circle',{cx:p.x,cy:p.y,r,'data-id':id}); el.setAttribute('class','hole');
+    p.el=el; gPts.appendChild(el);
+  }
+}
+
+/* =======================================================================
+   3. STATE + INTERACTION
+   ===================================================================== */
+const state={
+  power:false, mode:'free', project:null,
+  wires:[], parts:[], npnMemo:{}, brk:{rmP:new Set(),shP:new Set(),rmW:new Set()}, lastBreak:null, lastSol:null,
+  pending:null, armed:null, armedColor:'#e8e8e8',
+  ctl:{ sw:'down', s1:false, s2:false, pot:0.5, light:0.7, tuning:0.5 }
+};
+const WIRE_COLORS=[
+  ['White','#eef0f2'],['Red','#d24b4b'],['Blue','#4a78d2'],['Yellow','#e8c84a'],
+  ['Orange','#e08a2f'],['Green','#3fbf6f'],['Black','#33373d']
+];
+let curWireColor='#eef0f2';
+
+function nodeOf(id){ return pts[id]?pts[id].node:null; }
+
+function clickPoint(id){
+  if(state.armed){
+    if(!state._a){ state._a=id; pts[id].el.classList.add('start'); return; }
+    if(state._a===id){ clearArmedSel(); return; }
+    placePart(state.armed, state._a, id);
+    clearArmedSel();
+    return;
+  }
+  // wire mode
+  if(!state.pending){ state.pending=id; pts[id].el.classList.add('start'); return; }
+  if(state.pending===id){ pts[id].el.classList.remove('start'); state.pending=null; return; }
+  state.wires.push({a:state.pending,b:id,color:curWireColor});
+  pts[state.pending].el.classList.remove('start'); state.pending=null;
+  recompute(); drawOverlay();
+}
+function clearArmedSel(){ if(state._a&&pts[state._a]) pts[state._a].el.classList.remove('start'); state._a=null; }
+
+const RES_VALUES=[33,47,100,150,220,270,330,470,680,1000,1500,2200,2700,3300,4700,6800,10000,12000,22000,27000,33000,47000,100000,220000,470000,1000000];
+function fmtR(o){ return o>=1e6?(o/1e6)+'M':o>=1e3?(o/1e3)+'k':o+'Ω'; }
+
+function placePart(type, a, b){
+  let value=null;
+  if(type==='res') value=parseInt(document.getElementById('resVal').value,10);
+  if(type==='npn'){ // needs 3 pins; we collected 2 — ask user to also tap emitter
+    if(!state._npn){ state._npn={b:a,c:b}; setHint('NPN: base & collector set — now tap the EMITTER point.'); state._a=null; state.armed='npn-e'; return; }
+  }
+  const part={id:'p'+Math.random().toString(36).slice(2,7),type,a,b,value};
+  state.parts.push(part);
+  state.armed=null; updateArmedUI(); setHint(defaultHint);
+  recompute(); drawOverlay();
+}
+// emitter completion
+function placeNpnEmitter(e){
+  const t=state._npn; state._npn=null;
+  state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'npn',b:t.b,c:t.c,e});
+  state.armed=null; updateArmedUI(); setHint(defaultHint); recompute(); drawOverlay();
+}
+
+function removeItemAt(id){
+  // remove wire or part connected visually — by clicking its midpoint marker (handled via data-attr)
+}
+
+/* ---- overlay drawing (wires + parts) ---- */
+function drawOverlay(){
+  gWires.innerHTML=''; gParts.innerHTML='';
+  state.wires.forEach((w,i)=>{
+    const A=pts[w.a],Bp=pts[w.b]; if(!A||!Bp) return;
+    const ln=svg('path',{d:`M${A.x} ${A.y} Q ${(A.x+Bp.x)/2} ${(A.y+Bp.y)/2 - 18} ${Bp.x} ${Bp.y}`,
+      fill:'none',stroke:w.color,'stroke-width':3.2,'stroke-linecap':'round',opacity:.92});
+    if(state.brk.rmW.has(i)){ ln.setAttribute('stroke','#d24b4b'); ln.setAttribute('stroke-dasharray','5 5'); ln.setAttribute('opacity','.55'); }
+    ln.style.cursor='pointer'; ln.addEventListener('click',ev=>{ev.stopPropagation(); clearBrk(); state.wires.splice(i,1); recompute(); drawOverlay();});
+    gWires.appendChild(ln);
+  });
+  state.parts.forEach((p,i)=>{
+    const g=drawPartGlyph(p);
+    if(g){ if(state.brk.rmP.has(p.id)) g.setAttribute('opacity','.22');
+      g.style.cursor='pointer'; g.addEventListener('click',ev=>{ev.stopPropagation(); clearBrk(); state.parts.splice(i,1); recompute(); drawOverlay();}); gParts.appendChild(g); }
+  });
+  drawBreakMarks();
+  drawOverlayBrightness();
+  drawXray();
+}
+function drawBreakMarks(){
+  const mark=(x,y,label)=>{ const t=svg('text',{x,y:y+5,'text-anchor':'middle','font-size':16,'font-weight':700,fill:'#ff5a4a'}); t.textContent=label; gParts.appendChild(t); };
+  state.parts.forEach(p=>{
+    const A=p.type==='npn'?p.c:p.a, B=p.type==='npn'?p.e:p.b; if(!pts[A]||!pts[B]) return; const m=midpoint(A,B);
+    if(state.brk.rmP.has(p.id)) mark(m.x,m.y,'✕');
+    if(state.brk.shP.has(p.id)){ gParts.appendChild(svg('line',{x1:pts[A].x,y1:pts[A].y,x2:pts[B].x,y2:pts[B].y,stroke:'#ff5a4a','stroke-width':4,'stroke-linecap':'round'})); mark(m.x,m.y-12,'SHORT'); }
+  });
+  state.wires.forEach((w,i)=>{ if(state.brk.rmW.has(i)&&pts[w.a]&&pts[w.b]){ const m=midpoint(w.a,w.b); mark(m.x,m.y-9,'✕'); } });
+}
+function midpoint(a,b){ const A=pts[a],B=pts[b]; return {x:(A.x+B.x)/2,y:(A.y+B.y)/2,A,B}; }
+function drawPartGlyph(p){
+  const g=svg('g',{});
+  if(p.type==='npn'){
+    const B=pts[p.b],C=pts[p.c],E=pts[p.e]; if(!B||!C||!E) return null;
+    const cx=(B.x+C.x+E.x)/3, cy=(B.y+C.y+E.y)/3;
+    [['b',B],['c',C],['e',E]].forEach(([_,P])=>g.appendChild(svg('line',{x1:cx,y1:cy,x2:P.x,y2:P.y,stroke:'#444','stroke-width':2})));
+    g.appendChild(svg('circle',{cx,cy,r:9,fill:'#2c3036',stroke:'#000'}));
+    g.appendChild(text(cx,cy+3,'Q','silktiny',9));
+    g.querySelectorAll('text').forEach(t=>t.setAttribute('fill','#fff'));
+    return g;
+  }
+  const m=midpoint(p.a,p.b); if(!m.A||!m.B) return null;
+  const ang=Math.atan2(m.B.y-m.A.y,m.B.x-m.A.x);
+  g.appendChild(svg('line',{x1:m.A.x,y1:m.A.y,x2:m.B.x,y2:m.B.y,stroke:'#6a7079','stroke-width':2}));
+  const box=svg('g',{transform:`translate(${m.x},${m.y}) rotate(${ang*180/Math.PI})`});
+  if(p.type==='res'){
+    box.appendChild(svg('rect',{x:-15,y:-6,width:30,height:12,rx:2,fill:'#d8c08a',stroke:'#7a6a3a'}));
+    const t=text(0,-9,fmtR(p.value),'silktiny',8); box.appendChild(t);
+  } else if(p.type==='led'){
+    box.appendChild(svg('polygon',{points:'-7,-7 -7,7 7,0',fill:'#c8503a',stroke:'#7a2a1e'}));
+    box.appendChild(svg('line',{x1:7,y1:-7,x2:7,y2:7,stroke:'#7a2a1e','stroke-width':2}));
+    box.appendChild(svg('circle',{cx:0,cy:0,r:10,fill:'none',stroke:'#c8503a','stroke-width':1,opacity:.5}));
+  } else if(p.type==='diode'){
+    box.appendChild(svg('polygon',{points:'-7,-7 -7,7 7,0',fill:'#2c3036',stroke:'#000'}));
+    box.appendChild(svg('line',{x1:7,y1:-7,x2:7,y2:7,stroke:'#000','stroke-width':2}));
+  } else if(p.type==='cap'){
+    box.appendChild(svg('line',{x1:-3,y1:-9,x2:-3,y2:9,stroke:'#444','stroke-width':3}));
+    box.appendChild(svg('line',{x1:3,y1:-9,x2:3,y2:9,stroke:'#444','stroke-width':3}));
+  }
+  g.appendChild(box);
+  return g;
+}
+
+/* =======================================================================
+   4. NETLIST BUILD + RECOMPUTE
+   ===================================================================== */
+const NOBRK={rmP:new Set(),shP:new Set(),rmW:new Set()};
+function clearBrk(){ state.brk={rmP:new Set(),shP:new Set(),rmW:new Set()}; state.lastBreak=null; }
+function buildNodeMap(brk){
+  brk=brk||state.brk||NOBRK;
+  // union-find over node keys, merging wires and closed switch
+  const parent={};
+  const find=x=>{ if(parent[x]===undefined)parent[x]=x; while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];} return x; };
+  const uni=(a,b)=>{ const ra=find(a),rb=find(b); if(ra!==rb)parent[ra]=rb; };
+  // seed all known nodes
+  for(const id in pts) find(pts[id].node);
+  // wires
+  state.wires.forEach((w,i)=>{ if(brk.rmW.has(i)) return; if(pts[w.a]&&pts[w.b]) uni(pts[w.a].node,pts[w.b].node); });
+  // shorted parts behave like a wire across them (a transistor short is collector-to-emitter)
+  state.parts.forEach(p=>{ if(!brk.shP.has(p.id)) return; if(p.type==='npn') uni(pts[p.c].node,pts[p.e].node); else if(pts[p.a]&&pts[p.b]) uni(pts[p.a].node,pts[p.b].node); });
+  // DPDT switch: 73(common) <-> 72(up) or 74(down)
+  if(state.ctl.sw==='up') uni('spn:73','spn:72'); else uni('spn:73','spn:74');
+  // keys S1/S2 closed when held
+  if(state.ctl.s1) uni('spn:89','spn:90');
+  if(state.ctl.s2) uni('spn:87','spn:88');
+  return find;
+}
+
+function recompute(){
+  if(state.project && PROJECTS[state.project] && PROJECTS[state.project].kind!=='analog'){
+    behavioralUpdate(); return;
+  }
+  const sol=computeSolution(state.brk); state.lastSol=sol;
+  if(state.power) sol.npns.forEach((t,i)=>{ state.npnMemo[t.id]=!!sol.res.npnStates[i]; }); // remember for next time
+  applyResults(sol.res,sol.diodes,sol.find); updateReadings();
+}
+function npnStart(id){ if(id in state.npnMemo) return state.npnMemo[id]; const P=state.project&&PROJECTS[state.project]; return !!(P&&P.npnInit&&P.npnInit[id]); }
+function computeSolution(brk){
+  brk=brk||NOBRK;
+  const find=buildNodeMap(brk);
+  // fixed sources
+  const fixed={};
+  if(state.power){ for(let v=1;v<=6;v++) fixed[find(`pw:V${v}`)]=1.5*v; fixed[find('pw:N')]=0; }
+  // collect element node keys
+  const baseR=[], diodes=[], npns=[];
+  const allNodes=new Set();
+  const nk=nodeKey=>{ const k=find(nodeKey); allNodes.add(k); return k; };
+  // ensure rail+gnd present
+  for(let v=1;v<=6;v++) nk(`pw:V${v}`); nk('pw:N');
+
+  state.parts.forEach(p=>{
+    if(brk.rmP.has(p.id)||brk.shP.has(p.id)) return; // removed = open; shorted = already merged into one node
+    if(p.type==='res') baseR.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),g:1/p.value});
+    else if(p.type==='led') diodes.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),vth:1.8,ron:28,_led:p});
+    else if(p.type==='diode') diodes.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),vth:0.6,ron:8});
+    else if(p.type==='cap'){ /* open at DC */ }
+    else if(p.type==='npn') npns.push({b:nk(pts[p.b].node),c:nk(pts[p.c].node),e:nk(pts[p.e].node),von:0.6,ron:25,id:p.id,init:npnStart(p.id)});
+  });
+  // CdS as light-dependent resistor across its springs (if user wired it). bright→low R
+  const cdsR = 1000*Math.pow(10, 3*(1-state.ctl.light)); // real CdS: ~1 kΩ in bright light to ~1 MΩ in the dark, changing by powers of ten
+  baseR.push({a:nk('spn:19'),b:nk('spn:20'),g:1/cdsR});
+  // control-volume pot: 58—wiper59—60, total 50k
+  const pv=state.ctl.pot, tot=50000;
+  baseR.push({a:nk('spn:58'),b:nk('spn:59'),g:1/Math.max(50,pv*tot)});
+  baseR.push({a:nk('spn:59'),b:nk('spn:60'),g:1/Math.max(50,(1-pv)*tot)});
+
+  const res = state.power ? solveCircuit([...allNodes],fixed,baseR,diodes,npns) : {v:{},diodeStates:[],npnStates:[]};
+  return {res,diodes,npns,find};
+}
+
+function applyResults(res,diodes,find){
+  // reset lamps
+  for(let i=1;i<=8;i++){ const l=document.getElementById('ledlamp'+i); if(l){l.setAttribute('fill','#5b6168');l.removeAttribute('filter');} }
+  // any LED part lit?
+  let di=0;
+  state.parts.forEach(p=>{ if(p.type==='led'){
+    const d=diodes.find(x=>x._led===p);
+    let bright=0;
+    if(d){ const va=res.v[d.a]??0, vc=res.v[d.b]??0, i=Math.max(0,(va-vc-d.vth)/d.ron); bright=Math.min(1,i/0.012); }
+    p._bright=bright;
+  }});
+  drawOverlayBrightness();
+  // map first lit LED part onto on-panel LED1 lamp as a visual echo (free build uses placed glyph glow)
+  // meter: show V across pot wiper vs gnd (a generic probe)
+  const needle=document.getElementById('needle');
+  if(needle){ const probe=(res.v[find('spn:59')]??0); const frac=Math.max(0,Math.min(1,probe/9));
+    const ang=-Math.PI*0.75+frac*Math.PI*1.5; const cx=940,cy=182;
+    needle.setAttribute('x2',cx+Math.cos(ang)*44); needle.setAttribute('y2',cy+Math.sin(ang)*44); }
+  updateNodeColors(find);
+  audioOff();
+  drawXray();
+}
+function drawOverlayBrightness(){
+  gParts.querySelectorAll('[data-bright]').forEach(e=>e.remove());
+  state.parts.forEach(p=>{ if(p.type==='led' && p._bright>0.03 && !state.brk.rmP.has(p.id) && !state.brk.shP.has(p.id)){
+    const m=midpoint(p.a,p.b); const halo=svg('circle',{cx:m.x,cy:m.y,r:13,fill:'url(#ledg)',opacity:Math.min(1,p._bright)});
+    halo.setAttribute('data-bright','1'); halo.setAttribute('filter','url(#glow)'); gParts.insertBefore(halo,gParts.firstChild);
+  }});
+}
+function updateNodeColors(find){
+  // energized points (|V|>0.2) glow faintly amber when powered
+  const find2 = find || buildNodeMap();
+  for(const id in pts){ pts[id].el.classList.remove('live'); }
+  if(!state.power) return;
+  const fixedNodes={}; // recompute quick voltage check is heavy; instead mark nodes tied to any rail
+  // mark holes whose node connects to a + rail and also has a return path — approximate: mark rail-connected nodes
+  for(let v=1;v<=6;v++){ const r=find2(`pw:V${v}`); for(const id in pts){ if(find2(pts[id].node)===r) pts[id].el.classList.add('live'); } }
+}
+
+/* hover → same-node highlight (signature interaction) */
+let hoverFind=null;
+function refreshHoverFind(){ hoverFind=buildNodeMap(); }
+kit.addEventListener('pointermove',e=>{
+  const t=e.target; if(!t.dataset||!t.dataset.id){ clearSame(); return; }
+  if(!hoverFind) refreshHoverFind();
+  const root=hoverFind(pts[t.dataset.id].node);
+  for(const id in pts){ pts[id].el.classList.toggle('same', hoverFind(pts[id].node)===root); }
+});
+kit.addEventListener('pointerleave',clearSame);
+function clearSame(){ for(const id in pts) pts[id].el.classList.remove('same'); }
+
+/* clicks */
+kit.addEventListener('click',e=>{
+  const t=e.target;
+  if(state.armed==='npn-e' && t.dataset && t.dataset.id){ placeNpnEmitter(t.dataset.id); return; }
+  if(t.dataset && t.dataset.id){ refreshHoverFind(); clickPoint(t.dataset.id); }
+});
+
+/* =======================================================================
+   5. BEHAVIORAL PROJECTS (logic / blink / audio)
+   ===================================================================== */
+let raf=null, audioCtx=null, osc=null, gain=null;
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); }
+function audioTone(freq,vol){ ensureAudio(); if(!audioCtx) return;
+  if(!osc){ osc=audioCtx.createOscillator(); gain=audioCtx.createGain(); osc.type='square'; osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); }
+  osc.frequency.setTargetAtTime(freq,audioCtx.currentTime,0.01); gain.gain.setTargetAtTime(vol,audioCtx.currentTime,0.02);
+}
+function audioOff(){ if(gain&&audioCtx) gain.gain.setTargetAtTime(0,audioCtx.currentTime,0.03); }
+
+function stopDynamic(){ if(raf) cancelAnimationFrame(raf); raf=null; audioOff(); }
+function setLamp1(on,bright){ const l=document.getElementById('ledlamp1'); if(!l)return;
+  if(on){ l.setAttribute('fill','url(#ledg)'); l.setAttribute('filter','url(#glow)'); l.setAttribute('opacity',bright??1);} else { l.setAttribute('fill','#5b6168'); l.removeAttribute('filter'); l.setAttribute('opacity',1);} }
+function setSpeaker(active){ const s=document.getElementById('spkr'); if(s) s.setAttribute('stroke',active?'#e0922f':'#1a1d22'); }
+
+function behavioralUpdate(){
+  const P=PROJECTS[state.project]; if(!P) return;
+  const out=P.eval(state.ctl, state.power);
+  setReadout(out.read||'');
+  if(P.kind==='logic'){ setLamp1(state.power&&out.on,1); audioOff(); setSpeaker(false); }
+}
+function dynamicLoop(){
+  const P=PROJECTS[state.project]; if(!P){stopDynamic();return;}
+  const t=performance.now()/1000;
+  const out=P.eval(state.ctl, state.power, t);
+  if(P.kind==='blink'){ setLamp1(state.power&&out.on,1); setReadout(out.read||''); }
+  if(P.kind==='audio'){ if(state.power&&out.freq){ audioTone(out.freq,out.vol??0.06); setSpeaker(true);} else { audioOff(); setSpeaker(false);} setReadout(out.read||''); }
+  raf=requestAnimationFrame(dynamicLoop);
+}
+
+/* =======================================================================
+   6. PROJECT LIBRARY
+   ===================================================================== */
+// auto-wire helpers operate on state directly
+function W(a,b,color){ state.wires.push({a,b,color:color||'#cdd2d6'}); }
+function R(a,b,v){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'res',a,b,value:v}); }
+function LED(a,b){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'led',a,b}); }
+function DIO(a,b){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'diode',a,b}); }
+
+const PROJECTS={
+  7:{num:7,title:"Light Telegraph",kind:"analog",
+     desc:"Press the key, the LED lights. The simplest closed/open-circuit demo.",
+     controls:["s1"],
+     build(){ // V6 → S1(89/90) → R270 → LED → neg
+       W('pw:V6:0','sp:89','#d24b4b'); R('sp:90','bb:F11',270); LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
+     }},
+  8:{num:8,title:"Series Resistors",kind:"analog",
+     desc:"Select switch adds a second 470Ω in series — watch the LED dim as resistance climbs.",
+     controls:["sw"],
+     build(){ // V6 → R470(R1) → [switch picks straight or +R470(R2)] → LED → neg
+       W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B6','bb:D6',470);
+       // switch common 73 = node after R1; up(72)=bypass to LED; down(74)=through R2 to LED
+       W('bb:D6','sp:73','#4a78d2');
+       W('sp:72','bb:F11','#eef0f2');          // up: straight
+       R('sp:74','bb:H11',470); W('bb:H11','bb:F11','#e8c84a'); // down: extra R2
+       LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
+     }},
+  9:{num:9,title:"Parallel Resistors",kind:"analog",
+     desc:"Switch drops a second 470Ω in parallel — total resistance falls, the LED gets brighter.",
+     controls:["sw"],
+     build(){ // V6 → R(series 270) → node M → LED → neg ; M also → R470 to gnd-ish? show parallel into the LED branch
+       W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B6','bb:D6',270);
+       W('bb:D6','bb:F11','#4a78d2'); LED('bb:F11','bb:L11'); W('bb:L11','pw:N:11','#33373d');
+       // parallel R across LED via switch (down = added) — lowers branch resistance, more current overall
+       W('bb:F11','sp:73','#eef0f2'); R('sp:74','bb:Q11',470); W('bb:Q11','bb:L11','#e8c84a');
+     }},
+  10:{num:10,title:"Meet the Diode",kind:"analog",
+     desc:"Forward bias lights the LED; flip the switch to reverse the diode and it blocks current.",
+     controls:["sw"],
+     build(){ // V6 → R270 → diode → LED → neg ; switch reverses diode orientation
+       W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B6','bb:D6',270);
+       // switch up: diode anode at D6 (forward). down: route reverses (cathode at D6)
+       if(state.ctl.sw==='up'){ DIO('bb:D6','bb:F6'); } else { DIO('bb:F6','bb:D6'); }
+       LED('bb:F6','bb:F11'); W('bb:F11','pw:N:11','#33373d');
+     }},
+  19:{num:19,title:"Night Light",kind:"analog",
+     desc:"CdS cell controls the circuit. Slide the Light control down (dark) and the LED comes on.",
+     controls:["light"],
+     build(){ // divider: V6 → 470k → base node F6 → CdS(19/20) → neg. Dark = CdS high R = base pulled up past 0.6 V = on
+       R('pw:V6:0','bb:F6',470000);                    // top of divider
+       W('bb:F7','sp:19','#4a78d2'); W('sp:20','pw:N:6','#33373d'); // CdS is the bottom of the divider
+       // base from divider node F6
+       state.parts.push({id:'q1',type:'npn',b:'bb:F6',c:'bb:H11',e:'pw:N:11'});
+       W('pw:V6:1','bb:B11','#d24b4b'); R('bb:B11','bb:D11',470); LED('bb:D11','bb:H11');
+     }},
+  24:{num:24,title:"Inverter (NOT)",kind:"logic",
+     desc:"Output is the opposite of the input. Key released → output 1 (LED on). Key pressed → 0.",
+     controls:["s1"],
+     build(){}, eval(c,pw){ const inp=c.s1?1:0; const out=inp?0:1; return {on:!!out, read:`IN = ${inp}\nOUT = ${out}`}; }},
+  25:{num:25,title:"OR Gate",kind:"logic",
+     desc:"Output is 1 when either input is 1. Hold S1 or S2 (or both).",
+     controls:["s1","s2"],
+     build(){}, eval(c){ const a=c.s1?1:0,b=c.s2?1:0,o=(a||b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nA OR B = ${o}`}; }},
+  26:{num:26,title:"AND Gate",kind:"logic",
+     desc:"Output is 1 only when both inputs are 1. Set the switch up and hold S1.",
+     controls:["sw","s1"],
+     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=(a&&b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nA AND B = ${o}`}; }},
+  27:{num:27,title:"NOR Gate",kind:"logic",
+     desc:"Inverted OR — output 1 only when both inputs are 0.",
+     controls:["sw","s1"],
+     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=!(a||b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nNOT(A OR B) = ${o}`}; }},
+  28:{num:28,title:"NAND Gate",kind:"logic",
+     desc:"Inverted AND — output 0 only when both inputs are 1.",
+     controls:["sw","s1"],
+     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=!(a&&b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nNOT(A AND B) = ${o}`}; }},
+  29:{num:29,title:"Astable Multivibrator",kind:"blink",
+     desc:"A free-running square-wave oscillator — LED1 blinks on its own. The Control knob sets the rate.",
+     controls:["pot"],
+     build(){}, eval(c,pw,t){ const hz=0.7+c.pot*5; const on=(Math.floor(t*hz*2)%2===0); return {on, read:`f ≈ ${hz.toFixed(1)} Hz`}; }},
+  32:{num:32,title:"Adjustable Oscillator",kind:"audio",
+     desc:"A pulse-tone oscillator. The Control knob changes pitch — like the kit's electronic organ note.",
+     controls:["pot"],
+     build(){}, eval(c,pw){ const f=120+c.pot*1600; return {freq:f, vol:0.06, read:`tone ≈ ${f.toFixed(0)} Hz`}; }},
+  1:{num:1,title:"Light-Controlled Bird",kind:"audio",
+     desc:"A chirp whose pitch follows the light on the CdS cell plus the Control knob. Slide Light & Control.",
+     controls:["light","pot"],
+     build(){}, eval(c,pw){ const base=300+c.light*900; const f=base*(0.6+c.pot*0.8); const warble=1+0.15*Math.sin(performance.now()/120);
+       return {freq:f*warble, vol:0.05, read:`chirp ≈ ${(f).toFixed(0)} Hz`}; }}
+};
+// full 254-project index (titles from manual contents) — live ones flagged above
+const PROJECT_INDEX=[
+ [1,"Light-Controlled Bird"],[2,"A Transistor Radio"],[3,"Sound Scooper"],[4,"American Patrol Car Siren"],
+ [5,"Digital Roulette"],[6,"IC Organ"],[7,"Light Telegraph"],[8,"Introducing the Resistor"],
+ [9,"Parallel Resistor"],[10,"Meet the Diode"],[11,"The LED – A Special Diode"],[12,"The Electronic Gas Tank"],
+ [13,"Capacitors in Series and Parallel"],[14,"Meet the Transistor"],[15,"Transistors as Switches"],
+ [16,"PNP Transistor Switch"],[17,"NPN Transistor Switch"],[18,"Delay Light"],[19,"Night Light"],
+ [20,"Electronic Timer"],[21,"Capital Letter Display"],[22,"Small Letter Display"],[23,"Number Display"],
+ [24,"An Inverter Circuit"],[25,"Meet the OR Gate"],[26,"Introducing the AND Gate"],[27,"Using the NOR Gate"],
+ [28,"Meet the NAND Gate"],[29,"How a Multivibrator Works"],[30,"A 'One Shot' Multivibrator"],
+ [31,"An R-S Flip-Flop"],[32,"Meet the Oscillator"],[33,"Changing Oscillation with Capacitor"],
+ [34,"Changing Oscillation with Foreign Substance"],[35,"More About Oscillator"],[36,"A Push-Pull Oscillator"],
+ [37,"Low Distortion Sinewave Oscillator"],[38,"Strobe Light"],[39,"CdS-Controlled Oscillator"],
+ [40,"Frequency Shift Oscillator"],[41,"Electronic Grandfather Clock"],[42,"Electronic Metronome"],
+ [43,"Motion Detector"],[44,"Door Alarm"],[45,"Rapid LED Display Switching"],[46,"Code Practice Unit"],
+ [47,"Twin-T Audio Oscillator"],[48,"Current Switch"],[49,"Shot in the Dark"],[50,"Variable R-C Oscillator"]
+];
+// (51–254 exist in the manual; listed compactly as roadmap)
+const LIVE=new Set([1,7,8,9,10,19,24,25,26,27,28,29,32]);
+
+/* =======================================================================
+   7. UI WIRING
+   ===================================================================== */
+const defaultHint="Tap a part to arm it, then tap two points to place it. Tap two points with no part armed to run a wire. Tap a placed item to remove it.";
+function setHint(s){ document.getElementById('buildHint').textContent=s; }
+function setReadout(s){ const el=document.querySelector('#projCtl .readout'); if(el) el.textContent=s; }
+
+function buildWireChips(){
+  const c=document.getElementById('wireChips'); c.innerHTML='';
+  WIRE_COLORS.forEach(([n,hex],i)=>{
+    const d=document.createElement('div'); d.className='chip'+(hex===curWireColor?' armed':'');
+    d.innerHTML=`<span class="g"><svg width="22" height="10"><line x1="1" y1="5" x2="21" y2="5" stroke="${hex}" stroke-width="4" stroke-linecap="round"/></svg></span>${n}`;
+    d.onclick=()=>{ curWireColor=hex; state.armed=null; clearArmedSel(); updateArmedUI(); buildWireChips(); };
+    c.appendChild(d);
+  });
+}
+function fillResVals(){ const s=document.getElementById('resVal'); s.innerHTML=''; RES_VALUES.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=fmtR(v); s.appendChild(o);}); s.value=470; }
+function drawBinGlyphs(){
+  document.getElementById('resGlyph').innerHTML='<svg width="26" height="12"><rect x="3" y="2" width="20" height="8" rx="1.5" fill="#d8c08a" stroke="#7a6a3a"/></svg>';
+  document.getElementById('ledGlyph').innerHTML='<svg width="26" height="14"><polygon points="6,2 6,12 16,7" fill="#c8503a"/><line x1="16" y1="2" x2="16" y2="12" stroke="#7a2a1e" stroke-width="2"/></svg>';
+  document.getElementById('dioGlyph').innerHTML='<svg width="26" height="14"><polygon points="6,2 6,12 16,7" fill="#2c3036"/><line x1="16" y1="2" x2="16" y2="12" stroke="#000" stroke-width="2"/></svg>';
+  document.getElementById('npnGlyph').innerHTML='<svg width="26" height="16"><circle cx="13" cy="8" r="6" fill="#2c3036" stroke="#000"/><text x="13" y="11" font-size="7" fill="#fff" text-anchor="middle">Q</text></svg>';
+  document.getElementById('capGlyph').innerHTML='<svg width="26" height="14"><line x1="10" y1="2" x2="10" y2="12" stroke="#444" stroke-width="3"/><line x1="16" y1="2" x2="16" y2="12" stroke="#444" stroke-width="3"/></svg>';
+}
+function updateArmedUI(){
+  document.querySelectorAll('[data-part]').forEach(c=>c.classList.toggle('armed', state.armed===c.dataset.part));
+}
+document.querySelectorAll('[data-part]').forEach(c=>{
+  c.addEventListener('click',e=>{ if(e.target.tagName==='SELECT')return;
+    state.armed = state.armed===c.dataset.part?null:c.dataset.part; clearArmedSel(); state.pending&&pts[state.pending]&&pts[state.pending].el.classList.remove('start'); state.pending=null;
+    updateArmedUI(); });
+});
+
+/* power */
+const powerBtn=document.getElementById('powerBtn');
+powerBtn.addEventListener('click',()=>{ state.power=!state.power; if(!state.power) state.npnMemo={}; powerBtn.classList.toggle('on',state.power); powerBtn.setAttribute('aria-pressed',state.power);
+  if(state.power) ensureAudio();
+  stopDynamic();
+  if(state.project&&PROJECTS[state.project]&&(PROJECTS[state.project].kind==='blink'||PROJECTS[state.project].kind==='audio')) dynamicLoop();
+  recompute(); });
+
+/* clear / free */
+document.getElementById('clearBtn').onclick=()=>{ clearBrk(); state.npnMemo={}; state.wires=[]; state.parts=[]; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); recompute(); drawOverlay(); };
+document.getElementById('freeBtn').onclick=()=>{ state.mode='free'; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); setHint(defaultHint); recompute(); };
+
+/* tabs (desktop + mobile share handler) */
+function selectTab(name){
+  ['build','lineage','projects','mecha','help'].forEach(n=>{ const p=document.getElementById('pane-'+n); if(p)p.hidden=(n!==name); });
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('sel',b.dataset.tab===name));
+  document.querySelectorAll('#mtabs button').forEach(b=>b.classList.toggle('sel',b.dataset.tab===name));
+}
+document.querySelectorAll('.tabs button,#mtabs button').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+
+
+
+
+/* =======================================================================
+   X-RAY VIEW — the metal strips under the board, voltage as colour,
+   current as moving streaks. Wires are solved as tiny resistances here
+   so each one gets its own real current.
+   ===================================================================== */
+const XG=1000; // a wire = 1 mΩ
+function flowSolve(){
+  if(!state.power) return null;
+  const brk=state.brk||NOBRK, fixed={}, baseR=[], diodes=[], npns=[], links=[], nodes=new Set();
+  const add=k=>{ nodes.add(k); return k; };
+  for(let v=1;v<=6;v++){ fixed[add('pw:V'+v)]=1.5*v; } fixed[add('pw:N')]=0;
+  state.wires.forEach((w,i)=>{ if(brk.rmW.has(i)||!pts[w.a]||!pts[w.b]) return; const e={a:add(pts[w.a].node),b:add(pts[w.b].node),g:XG}; baseR.push(e); links.push({kind:'wire',i,e}); });
+  const link=(a,b)=>baseR.push({a:add(a),b:add(b),g:XG});
+  link('spn:73', state.ctl.sw==='up'?'spn:72':'spn:74');
+  if(state.ctl.s1) link('spn:89','spn:90'); if(state.ctl.s2) link('spn:87','spn:88');
+  state.parts.forEach(p=>{
+    if(brk.rmP.has(p.id)) return;
+    if(brk.shP.has(p.id)){ const A=p.type==='npn'?p.c:p.a, B=p.type==='npn'?p.e:p.b; const e={a:add(pts[A].node),b:add(pts[B].node),g:XG}; baseR.push(e); links.push({kind:'short',p,e}); return; }
+    if(p.type==='res'){ const e={a:add(pts[p.a].node),b:add(pts[p.b].node),g:1/p.value}; baseR.push(e); links.push({kind:'res',p,e}); }
+    else if(p.type==='led'||p.type==='diode'){ const d={a:add(pts[p.a].node),b:add(pts[p.b].node),vth:p.type==='led'?1.8:0.6,ron:p.type==='led'?28:8}; diodes.push(d); links.push({kind:'dio',p,d}); }
+    else if(p.type==='npn'){ const t={b:add(pts[p.b].node),c:add(pts[p.c].node),e:add(pts[p.e].node),von:0.6,ron:25,init:npnStart(p.id)}; npns.push(t); links.push({kind:'npn',p,t}); }
+  });
+  baseR.push({a:add('spn:19'),b:add('spn:20'),g:1/(1000*Math.pow(10,3*(1-state.ctl.light)))});
+  const pv=state.ctl.pot; baseR.push({a:add('spn:58'),b:add('spn:59'),g:1/Math.max(50,pv*50000)}); baseR.push({a:add('spn:59'),b:add('spn:60'),g:1/Math.max(50,(1-pv)*50000)});
+  const res=solveCircuit([...nodes],fixed,baseR,diodes,npns);
+  const V=k=>res.v[k]??0;
+  links.forEach(l=>{
+    if(l.e) l.I=(V(l.e.a)-V(l.e.b))*l.e.g;
+    else if(l.d){ const i=diodes.indexOf(l.d); l.I=res.diodeStates[i]?Math.max(0,(V(l.d.a)-V(l.d.b)-l.d.vth)/l.d.ron):0; }
+    else if(l.t){ const i=npns.indexOf(l.t); l.I=res.npnStates[i]?(V(l.t.c)-V(l.t.e))/l.t.ron:0; }
+  });
+  return {res,links,V};
+}
+function drawXray(){
+  gXray.innerHTML=''; gFlow.innerHTML='';
+  const on=!!state.xray; document.getElementById('xrayLegend').hidden=!on;
+  const btn=document.getElementById('xrayBtn'); if(btn){ btn.classList.toggle('on',on); btn.setAttribute('aria-pressed',on); }
+  if(!on) return;
+  const P=state.project?PROJECTS[state.project]:null, analog=!P||P.kind==='analog';
+  const fs=analog?flowSolve():null, sol=analog&&state.power?state.lastSol:null;
+  const volt=key=>{ if(!sol) return null; const k=sol.find(key); return (k in sol.res.v)?sol.res.v[k]:null; };
+  const strip=(x1,x2,y,key,h)=>{ const v=volt(key), live=v!=null;
+    const f=live?Math.max(0,Math.min(1,v/9)):0;
+    gXray.appendChild(svg('rect',{x:x1,y:y-h/2,width:x2-x1,height:h,rx:h/2,fill:live?`hsla(${205-f*170},85%,${52+f*8}%,${0.28+f*0.55})`:'rgba(170,190,210,.20)',stroke:live?`hsla(${205-f*170},90%,70%,.85)`:'rgba(190,205,220,.45)','stroke-width':1.2}));
+  };
+  const B=window.BB, ROWS=["A","B","C","D","E","F","G","H","J","K","L","M","N","P","Q","R","S","T","U","V"];
+  ROWS.forEach((r,ri)=>{ for(let b=0;b<6;b++){ const a=pts[`bb:${r}${b*5+1}`], z=pts[`bb:${r}${b*5+5}`]; if(a&&z) strip(a.x-9,z.x+9,a.y,`bbn:${r}:${b}`,11); } });
+  for(let v=1;v<=6;v++){ const a=pts[`pw:V${v}:0`], z=pts[`pw:V${v}:4`]; if(a&&z) strip(a.x-8,z.x+8,a.y,`pw:V${v}`,11); }
+  const n1=pts['pw:N:1'], n30=pts['pw:N:30']; if(n1&&n30) strip(n1.x-9,n30.x+9,n1.y,'pw:N',11);
+  if(!fs) return;
+  const flow=(d,I)=>{ const mA=Math.abs(I)*1000; if(mA<0.02) return;
+    const dur=Math.max(0.25,Math.min(4,1.6/Math.sqrt(mA)));
+    const base=svg('path',{d,fill:'none',class:'xflow',stroke:'#fff8e0','stroke-width':2.6,'stroke-linecap':'round','stroke-opacity':Math.min(.95,.35+mA/25)});
+    base.style.animationDuration=dur+'s'; if(I<0) base.style.animationDirection='reverse';
+    gFlow.appendChild(base); };
+  fs.links.forEach(l=>{
+    if(l.kind==='wire'){ const w=state.wires[l.i], A=pts[w.a], Bp=pts[w.b]; flow(`M${A.x} ${A.y} Q ${(A.x+Bp.x)/2} ${(A.y+Bp.y)/2-18} ${Bp.x} ${Bp.y}`,l.I); }
+    else { const p=l.p, a=p.type==='npn'?p.c:p.a, b=p.type==='npn'?p.e:p.b, A=pts[a], Bp=pts[b]; if(A&&Bp) flow(`M${A.x} ${A.y} L ${Bp.x} ${Bp.y}`,l.I); }
+  });
+}
+
+/* =======================================================================
+   LINEAGE TRACK — origin applications forward to today, then the frontier.
+   Every project is wired from kit parts and runs on the real solver.
+   knew: 'once' = saw its importance at once · 'part' = saw part of it · 'later' = others saw it later
+   ===================================================================== */
+const KNEW={once:['Knew at once','k-once'],part:['Saw part of it','k-part'],later:['Recognised later','k-later']};
+const LINE_PROJECTS={
+ L1:{num:'L1',title:"Volta’s stack",kind:'analog',desc:"Pick how many 1.5 V cells feed the LED. One cell is not enough.",
+   choices:[{key:'tap',label:'Cells in the stack',def:'V1',opts:[['V1','1 · 1.5 V'],['V2','2 · 3 V'],['V3','3 · 4.5 V'],['V4','4 · 6 V'],['V6','6 · 9 V']]}],
+   build(){ W(`pw:${state.ctl.tap}:0`,'bb:B6','#d24b4b'); R('bb:B6','bb:D6',330); LED('bb:D6','bb:F6'); W('bb:F6','pw:N:6','#33373d'); },
+   push:"Find the fewest cells that light the LED. Then, before you tap 6 cells, predict the current with Ohm’s law: (9 − 1.8) V ÷ (330 + 28) Ω. Check it against the reading.",
+   lineage:{year:'1800',had:"Discs of zinc and copper, cloth soaked in salt water, and an argument with Galvani about frog legs.",
+     build:"Your kit’s battery is a stack of six cells, each about 1.5 V, with a tap between every cell. One cell can’t push a red LED past its ~1.8 V turn-on voltage. Volta hit the same wall: one pair of metals does almost nothing, so he stacked dozens.",
+     knew:['once',"Yes. Within weeks he described the pile in a letter to the Royal Society in London, and in 1801 he demonstrated it for Napoleon. What he could not foresee was electric light, motors or electronics — he thought he had settled an argument about frogs."],
+     next:"A steady current let others ask what current could <em>do</em>. Twenty years later, Ørsted found that it moves a compass needle."}},
+ L2:{num:'L2',title:"The knob and the needle",kind:'analog',meter:true,desc:"The battery feeds the control knob; its wiper drives the meter. Turn the knob and watch the needle.",
+   controls:['pot'],
+   build(){ W('pw:V6:0','sp:60','#d24b4b'); W('sp:58','pw:N:16','#33373d'); }, // knob up = needle up
+   push:"Set the meter to exactly 4.5 V. Where is the knob? Now explain why with the voltage-divider idea from the Learn app: the wiper takes a fraction of the 9 V equal to its fraction of the way along the track.",
+   lineage:{year:'1820–1841',had:"Ørsted’s discovery that current deflects a compass (1820), coils of wire to multiply the effect, and a needle on a pivot.",
+     build:"A needle that swings with voltage, and a knob that taps off any fraction of the battery. The knob is a <em>potentiometer</em>: Johann Poggendorff used the same sliding-contact idea in 1841 to measure voltages precisely. You cannot study what you cannot measure — this is the step that turned electricity into numbers.",
+     knew:['once',"Ørsted knew at once that he had found a link between electricity and magnetism; in July 1820 he sent a short paper in Latin to scientists across Europe, and others were building on it within weeks."],
+     next:"Once current could be detected at a distance, it could carry a message. That is the telegraph."}},
+ L3:{num:'L3',title:"Telegraph on a long line",kind:'analog',desc:"Hold S1 to send. Choose a longer line and watch the signal at the far end fade.",
+   controls:['s1'],
+   choices:[{key:'line',label:'Line resistance (longer wire = more ohms)',def:0,opts:[[0,'In the office · 0 Ω'],[1000,'Long · 1 kΩ'],[4700,'Longer · 4.7 kΩ'],[22000,'Very long · 22 kΩ']]}],
+   build(){ W('pw:V6:0','sp:89','#d24b4b'); const L=+state.ctl.line; if(L) R('sp:90','bb:B11',L); else W('sp:90','bb:B11','#eef0f2');
+     R('bb:B13','bb:D13',330); LED('bb:D13','bb:F13'); W('bb:F13','pw:N:13','#33373d'); },
+   push:"Find the longest line where you can still read the signal. Then switch to L4 and beat it.",
+   lineage:{year:'1837–1844',had:"Batteries, electromagnets, insulated wire, and Joseph Henry’s discovery of how to make an electromagnet work at the end of a long wire.",
+     build:"The key is the telegraph key; the LED stands in for the sounder at the far end. Every mile of real wire adds resistance, so the far end gets less current. Telegraph engineers fought exactly this.",
+     knew:['once',"Morse knew what it meant: the first public message on the Washington–Baltimore line in 1844 was “What hath God wrought.” Joseph Henry had shown the key principles years earlier but never patented them — a long dispute about credit followed."],
+     next:"Fix for long lines: let the weak incoming signal switch a fresh, local battery. That is the relay."}},
+ L4:{num:'L4',title:"The relay: a weak signal switches a strong one",kind:'analog',desc:"Same long line, but the faint signal now only has to switch a transistor, which drives the LED from a fresh supply.",
+   controls:['s1'],
+   choices:[{key:'line',label:'Line resistance',def:22000,opts:[[0,'0 Ω'],[4700,'4.7 kΩ'],[22000,'22 kΩ'],[100000,'100 kΩ']]}],
+   build(){ W('pw:V6:0','sp:89','#d24b4b'); const L=+state.ctl.line; if(L) R('sp:90','bb:B6',L); else W('sp:90','bb:B6','#eef0f2');
+     R('bb:B8','bb:D8',10000); state.parts.push({id:'q1',type:'npn',b:'bb:D8',c:'bb:H11',e:'pw:N:11'});
+     W('pw:V6:1','bb:B11','#d24b4b'); R('bb:B12','bb:D12',330); LED('bb:D12','bb:H12'); },
+   push:"In Break-it, short the transistor. The key stops mattering. That exact failure — a relay welded shut — is a real fault telegraph and railway engineers had to design around.",
+   lineage:{year:'1835 → 1947',had:"The electromagnetic relay: a weak current pulls an iron arm that closes a second, strong circuit. Telegraph lines used relays to boost signals along the way.",
+     build:"The kit has no mechanical relay, so a transistor plays its part — the same job, done by a 1947 invention with no moving parts. The line current only has to reach the transistor’s base; the LED is powered locally.",
+     knew:['part',"The relay’s inventors saw a signal booster. Nobody imagined that a century later, banks of relays would do arithmetic: Konrad Zuse’s Z3 (1941) was a relay computer, and telephone exchanges ran on millions of relays."],
+     next:"If a switch can control a switch, then switches can be combined into rules. That is logic."}},
+ L5:{num:'L5',title:"Two keys in a row: AND",kind:'analog',desc:"S1 and S2 are wired one after the other. The LED needs both.",
+   controls:['s1','s2'],
+   build(){ W('pw:V6:0','sp:89','#d24b4b'); W('sp:90','sp:87','#4a78d2'); W('sp:88','bb:B11','#eef0f2'); R('bb:B13','bb:D13',330); LED('bb:D13','bb:F13'); W('bb:F13','pw:N:13','#33373d'); },
+   push:"Write the truth table for all four key combinations. Then, in Break-it, cut the wire between the two keys and try every combination again. Why can nothing light it now?",
+   lineage:{year:'1854 → 1937',had:"George Boole’s algebra of true and false (1854), and relay circuits that engineers wired by trial and error.",
+     build:"Switches in series: current only gets through if <b>every</b> switch is closed. That is Boole’s AND, built from nothing but the loop rule you learned first.",
+     knew:['later',"Boole died in 1864 with no idea his algebra would ever describe a machine. In 1937 Claude Shannon, a 21-year-old master’s student, showed that relay circuits follow Boole’s algebra exactly. His thesis has since been called one of the most important master’s theses of the 20th century."],
+     next:"Put the switches side by side instead, and you get the other basic rule."}},
+ L6:{num:'L6',title:"Two keys side by side: OR",kind:'analog',desc:"S1 and S2 each have their own path to the LED. Either one will do.",
+   controls:['s1','s2'],
+   build(){ W('pw:V6:0','sp:89','#d24b4b'); W('pw:V6:1','sp:87','#d24b4b'); W('sp:90','bb:B11','#eef0f2'); W('sp:88','bb:B12','#e8c84a'); R('bb:B13','bb:D13',330); LED('bb:D13','bb:F13'); W('bb:F13','pw:N:13','#33373d'); },
+   push:"Cut one of the two key wires in Break-it. Which gate is left? Now explain why a parallel path makes a circuit more fault-tolerant — and why aircraft and ships duplicate critical wiring.",
+   lineage:{year:'1937',had:"The same relays and Shannon’s insight.",
+     build:"Two paths in parallel: current gets through if <b>either</b> switch is closed. Series = AND, parallel = OR. Every decision a computer makes is built from rules like these two.",
+     knew:['later',"Same story as AND: the logic was Boole’s, the wiring was Shannon’s, and the meaning — that these could add, compare and decide — was understood only as computers were built in the 1940s."],
+     next:"Mechanical switches are slow and wear out. Next: a one-way valve that steers current with no moving parts."}},
+ L7:{num:'L7',title:"Diodes keep signals apart",kind:'analog',ledNames:['LED A (S1)','LED B (S2)','LED C (either)'],
+   desc:"Each key lights its own LED, and both feed LED C through a diode. Press S1: does LED B light?",
+   controls:['s1','s2'],
+   build(){ W('pw:V6:0','sp:89','#d24b4b'); W('sp:90','bb:B6','#eef0f2'); R('bb:B7','bb:D7',470); LED('bb:D7','bb:F7'); W('bb:F7','pw:N:7','#33373d'); DIO('bb:B8','bb:J16');
+     W('pw:V6:1','sp:87','#d24b4b'); W('sp:88','bb:B21','#e8c84a'); R('bb:B22','bb:D22',470); LED('bb:D22','bb:F22'); W('bb:F22','pw:N:22','#33373d'); DIO('bb:B23','bb:J17');
+     R('bb:J18','bb:L18',470); LED('bb:L18','bb:N18'); W('bb:N18','pw:N:18','#33373d'); },
+   push:"In Break-it, short the second diode, then hold S1. LED B lights even though you never touched S2. That is exactly why the diodes are there.",
+   lineage:{year:'1904 → 1950s',had:"Fleming’s vacuum-tube diode (1904), crystal detectors, and later Russell Ohl’s silicon p–n junction (1940).",
+     build:"Two diodes combine two signals into LED C (a diode OR gate) while stopping either signal from leaking back into the other side. Early computers used diode logic like this before transistors took over.",
+     knew:['part',"Fleming built his valve to detect radio for Marconi. He did not foresee it steering logic in computers, and Ohl’s junction was a surprise even to him — he was trying to make better radar detectors."],
+     next:"Diodes can combine and steer, but they cannot amplify or invert. The transistor can."}},
+ L8:{num:'L8',title:"Transistor logic: the NOR gate",kind:'analog',ledNames:['Output LED'],desc:"Two transistors share one output. The LED is on only when neither key is pressed.",
+   controls:['s1','s2'],
+   build(){ W('pw:V6:0','bb:B16','#d24b4b'); R('bb:B17','bb:D17',470);
+     R('bb:D18','bb:F18',220); LED('bb:F18','bb:H18'); W('bb:H18','pw:N:18','#33373d');
+     state.parts.push({id:'q1',type:'npn',b:'bb:L6',c:'bb:D19',e:'pw:N:19'}); W('pw:V6:1','sp:89','#d24b4b'); R('sp:90','bb:L7',10000);
+     state.parts.push({id:'q2',type:'npn',b:'bb:L11',c:'bb:D20',e:'pw:N:20'}); W('pw:V6:2','sp:87','#d24b4b'); R('sp:88','bb:L12',10000); },
+   push:"Fill in the truth table. NOR is a universal gate: with enough of them you can build any other gate, and any computer. Sketch how two NOR gates make an OR.",
+   lineage:{year:'1947 → 1969',had:"The transistor (1947), the integrated circuit (1958–59), and resistor-transistor logic chips from the early 1960s.",
+     build:"Either transistor, switched on by its key, pulls the shared output down to almost 0 V, so the LED goes off. Only when both are off does the output rise. That is NOT-OR: NOR.",
+     knew:['part',"Bell Labs knew in 1947 that they had a tiny amplifier and switch. Nobody predicted how far it would go: the Apollo Guidance Computer that flew to the Moon in 1969 was built almost entirely from NOR-gate chips like this circuit."],
+     next:"Logic can now decide. Give it senses, and it can react to the world."}},
+ L10:{num:'L10',title:"The flip-flop: a circuit that remembers",kind:'analog',ledNames:['LED 1 (Q1 side)','LED 2 (Q2 side)'],npnInit:{q1:true},
+   desc:"Two transistors hold each other in place. Tap S1 or S2 and let go: the circuit remembers which one you pressed.",
+   controls:['s1','s2'],
+   build(){ // each transistor's collector drives the other's base through 10 kΩ; S1/S2 pull a base to ground
+     R('pw:V6:0','bb:D6',4700); W('pw:V6:1','bb:B6','#d24b4b'); R('bb:B7','bb:C7',470); LED('bb:C8','bb:D8'); state.parts.push({id:'q1',type:'npn',b:'bb:L6',c:'bb:D9',e:'pw:N:9'});
+     R('pw:V6:2','bb:D16',4700); W('pw:V6:3','bb:B16','#d24b4b'); R('bb:B17','bb:C17',470); LED('bb:C18','bb:D18'); state.parts.push({id:'q2',type:'npn',b:'bb:L16',c:'bb:D19',e:'pw:N:19'});
+     R('bb:D10','bb:L17',10000); R('bb:D20','bb:L7',10000);
+     W('bb:L8','sp:89','#4a78d2'); W('sp:90','pw:N:8','#33373d'); W('bb:L18','sp:87','#e8c84a'); W('sp:88','pw:N:18','#33373d'); },
+   push:"Tap S1 and let go: LED 2 stays on. Tap S2 and let go: LED 1 stays on. You are storing one bit. Then, in Break-it, cut one of the 10 kΩ cross-links and try again. Why does it forget?",
+   lineage:{year:'1918 → today',had:"Vacuum tubes, and the idea of feedback: a circuit whose output feeds back into its own input.",
+     build:"Each transistor’s output holds the other one off. Whichever is on keeps itself on, so the circuit stays put after you let go of the key. That is <b>memory</b>: the output depends on what happened before, not just on what you are pressing now. Nothing you have built before could do that.",
+     knew:['part',"William Eccles and F. W. Jordan patented their two-tube “trigger relay” in 1918 as a switching circuit. Its role as the basic cell of computer memory came in the 1940s. Today a static memory cell built on the same cross-coupled idea sits in every processor’s cache, billions of times over."],
+     next:"Chain flip-flops and they count; line them up and they hold numbers. Add the gates you’ve built and you have the pieces of a processor."}},
+ L9:{num:'L9',title:"Sense and decide: the armed night-light",kind:'analog',ledNames:['Lamp'],desc:"The lamp lights only when it is dark AND the arming key S1 is held.",
+   controls:['light','s1'],
+   build(){ R('pw:V6:0','bb:F6',470000); W('bb:F7','sp:19','#4a78d2'); W('sp:20','pw:N:6','#33373d'); state.parts.push({id:'q1',type:'npn',b:'bb:F8',c:'bb:H11',e:'pw:N:11'});
+     W('pw:V6:1','sp:89','#d24b4b'); W('sp:90','bb:B11','#eef0f2'); R('bb:B12','bb:D12',470); LED('bb:D12','bb:H12'); },
+   push:"Turn it into a daylight alarm: swap the positions of the light sensor and the 470 kΩ resistor in your head. Which way does the base voltage move now when light falls on the sensor?",
+   lineage:{year:'1873 → today',had:"Willoughby Smith’s accidental discovery that selenium reacts to light (1873), cadmium-sulfide sensors, transistors and logic.",
+     build:"Sense (the light sensor in a voltage divider), decide (the transistor only conducts when it is dark, and only if the key has armed the lamp’s supply) and act (the lamp). This sense–decide–act loop is the skeleton of thermostats, automatic doors and robots.",
+     knew:['later',"Smith was testing undersea telegraph cable and treated the light effect as a nuisance to explain. Its uses — light meters, automatic streetlights, and much later phone sensors and solar cells — were found by others over the next century."],
+     next:"Replace the fixed wiring of the decision with a program, and give the output muscles. That is where the trainer’s mechatronics track goes next."}}
+};
+Object.assign(PROJECTS,LINE_PROJECTS);
+const LINE_ERAS=[
+ ['A steady current','1800',['L1']],
+ ['Turning it into numbers','1820–1841',['L2']],
+ ['Messages over wire','1837–1940s',['L3','L4']],
+ ['Switches that decide','1854–1937',['L5','L6']],
+ ['One-way valves','1904–1950s',['L7']],
+ ['Solid state','1947–1969',['L8']],
+ ['Remembering','1918–today',['L10']],
+ ['Sense, decide, act','1873–today',['L9']]
+];
+const FRONTIER=[
+ ["CERN: electronics at the edge of physics","CERN’s Large Hadron Collider is a 27 km ring of superconducting magnets cooled to 1.9 K, colder than outer space, steering particle beams with electronics that must time events to billionths of a second. And it holds the best “did they know?” story in modern computing: in 1989 Tim Berners-Lee proposed a way for CERN’s physicists to share documents. His manager wrote on the proposal “Vague but exciting…”. It became the World Wide Web."],
+ ["Machines that move","Coming in the trainer’s mechatronics track: a microcontroller block, motor drivers and servos. To build it for real now, an Arduino-class board, a hobby servo and a light sensor are enough to make L9 aim itself at the light."],
+ ["The memristor: predicted before it was built","In 1971 Leon Chua argued there should be a fourth basic passive part, alongside the resistor, capacitor and inductor: a resistor that remembers how much current has passed through it. HP Labs reported building one in 2008. Researchers are still exploring memristors for computer memory and brain-like computing — a rare case of the theory coming 37 years before the part."],
+ ["Electronics that power themselves","Energy harvesting circuits run from light, heat or vibration instead of batteries — sensors on bridges, in fields and inside machines. A small solar cell, a supercapacitor and an LED make a desk-sized version."],
+ ["Computing with light and with qubits","Photonic chips move data with light instead of current; quantum computers use qubits that are not simply 0 or 1. Both are active research, and both are stacked on every piece in this lineage: materials, measurement, theory, sharing and need."]
+];
+function lineageCard(P){
+  const L=P.lineage, k=KNEW[L.knew[0]];
+  const d=document.createElement('details'); d.className='tr-origin lin'; let collapsed=false; try{ collapsed=localStorage.getItem('el500-trainer-oc')==='1'; }catch(e){} if(!collapsed) d.open=true;
+  d.innerHTML=`<summary><span>The story behind this build</span><em class="${k[1]}">${k[0]}</em></summary>
+   <div class="tr-obody"><p><b>What they had:</b> ${L.had}</p><p><b>What you’re building:</b> ${L.build}</p><p><b>Did they know what they had?</b> ${L.knew[1]}</p><p><b>What it led to:</b> ${L.next}</p></div>`;
+  d.addEventListener('toggle',()=>{ try{ localStorage.setItem('el500-trainer-oc',d.open?'0':'1'); }catch(e){} });
+  return d;
+}
+function renderLineage(){
+  const host=document.getElementById('lineList'); if(!host) return; host.innerHTML='';
+  const e0=document.createElement('div'); e0.className='era era0';
+  const L=(n,t)=>`<a class="e0link" href="electronics-basics.html#l=${encodeURIComponent(n)}">${t} ›</a>`;
+  e0.innerHTML=`<div class="era-h"><span>Era 0</span> Before electricity <small>40,000 years ago → 1890</small></div>
+    <div class="fcard"><p>Programs and logic are older than electricity: tallies and clay tokens for accounts, Heron’s rope-programmed cart (1st century CE), Jacquard’s punched cards (1804). They can’t run on this breadboard, so they live in the course as interactive lessons.</p>
+    <div class="e0links">${L('Counting before computing','Counting & accounts')}${L('Heron’s programmable cart','Heron’s cart')}${L('Punched cards','Punched cards')}${L('Bootstrapping','The bootstrap ladder')}</div></div>`;
+  host.appendChild(e0);
+  LINE_ERAS.forEach(([name,yrs,ids],ei)=>{
+    const era=document.createElement('div'); era.className='era'; era.innerHTML=`<div class="era-h"><span>Era ${ei+1}</span> ${name} <small>${yrs}</small></div>`;
+    ids.forEach(id=>{ const P=PROJECTS[id], k=KNEW[P.lineage.knew[0]];
+      const b=document.createElement('button'); b.className='proj lin-p'+(state.project===id?' sel':'');
+      b.innerHTML=`<div class="row"><span class="num">${id}</span><span class="t">${P.title}</span><span class="tag live">BUILD</span></div><div class="d">${P.lineage.year} · <span class="${k[1]}">${k[0]}</span> — ${P.desc}</div>`;
+      b.onclick=()=>loadProject(id); era.appendChild(b); });
+    host.appendChild(era);
+  });
+  const fr=document.createElement('div'); fr.className='era frontier'; fr.innerHTML='<div class="era-h"><span>Next</span> The frontier <small>not simulated yet</small></div>';
+  FRONTIER.forEach(([t,d])=>{ const c=document.createElement('div'); c.className='fcard'; c.innerHTML=`<b>${t}</b><p>${d}</p>`; fr.appendChild(c); });
+  host.appendChild(fr);
+}
+
+/* =======================================================================
+   READINGS · BREAK-IT MODE · CHOICES — shared by every wired project
+   ===================================================================== */
+function hole(id){
+  if(!id) return '?';
+  if(id.startsWith('bb:')) return id.slice(3);
+  let m=/^pw:(V\d):/.exec(id); if(m) return m[1]+' rail';
+  if(id.startsWith('pw:N')) return '− rail';
+  const SP={19:'CdS cell',20:'CdS cell',58:'knob top',59:'knob wiper',60:'knob bottom',72:'switch up',73:'switch common',74:'switch down',87:'S2 key',88:'S2 key',89:'S1 key',90:'S1 key'};
+  m=/^sp:(\d+)/.exec(id); if(m) return (SP[m[1]]||'spring')+' ('+m[1]+')';
+  return id;
+}
+function ledList(){ return state.parts.filter(p=>p.type==='led'); }
+function ledName(p){ const P=PROJECTS[state.project]; const i=ledList().indexOf(p); return (P&&P.ledNames&&P.ledNames[i]) || ('LED '+(i+1)); }
+function partLabel(p){ if(p.type==='res') return (p.value>=1000?fmtR(p.value)+'Ω':fmtR(p.value))+' resistor'; if(p.type==='led') return ledName(p); if(p.type==='diode') return 'diode'; if(p.type==='npn') return 'transistor'; return p.type; }
+function partLoc(p){ return p.type==='npn' ? 'B '+hole(p.b)+' · C '+hole(p.c)+' · E '+hole(p.e) : hole(p.a)+' → '+hole(p.b); }
+function ledmA(p,sol){ if(!sol) return 0; const d=sol.diodes.find(x=>x._led===p); if(!d) return 0; const va=sol.res.v[d.a]??0, vc=sol.res.v[d.b]??0; return Math.max(0,(va-vc-d.vth)/d.ron)*1000; }
+function updateReadings(){
+  const box=document.getElementById('trRead'); if(!box) return;
+  const P=PROJECTS[state.project]; if(!P||P.kind!=='analog'){ box.innerHTML=''; return; }
+  if(!state.power){ box.innerHTML='<p class="trnote">Switch <b>POWER</b> on to see live readings.</p>'; return; }
+  const sol=state.lastSol; let rows='';
+  ledList().forEach(p=>{ const mA=ledmA(p,sol); const st=state.brk.rmP.has(p.id)?'removed':mA>30?'<span class="hot">too much — would burn out</span>':mA>8?'bright':mA>1?'dim':'off';
+    rows+=`<tr><td>${ledName(p)}</td><td class="num">${mA.toFixed(1)} mA</td><td>${st}</td></tr>`; });
+  if(P.meter){ const v=sol.res.v[sol.find('spn:59')]??0; rows+=`<tr><td>Meter (knob wiper)</td><td class="num">${v.toFixed(2)} V</td><td>${Math.round(v/9*100)}% of 9 V</td></tr>`; }
+  box.innerHTML=rows?`<table class="trtab"><tr><th>Reading</th><th>Value</th><th></th></tr>${rows}</table>`:'';
+}
+const BREAK_WHY={
+  res:{rm:"A missing resistor is an <b>open</b>: a gap with effectively infinite resistance.",sh:"A short is <b>zero</b> resistance. By Ohm’s law, current = voltage ÷ resistance, so with the resistor shorted out nothing is left to hold the current back except the LED itself — which is almost nothing."},
+  led:{rm:"The LED was part of the loop, so taking it out opens the loop.",sh:"Current takes the easiest path. A short across the LED is an almost resistance-free path around it, so the LED is bypassed and goes dark while the rest of the loop carries more current."},
+  diode:{rm:"The diode was the only bridge between the two sides, so removing it opens that path.",sh:"A shorted diode is no longer a one-way valve: current can now flow backwards through it, so the two sides it used to keep apart are joined."},
+  npn:{rm:"With the transistor gone, nothing can complete the collector-to-emitter path, so its load can never turn on. It has failed <b>off</b>.",sh:"A transistor shorted from collector to emitter is stuck <b>on</b> — one of the most common real failures. Its input no longer controls anything."},
+  wire:{rm:"A cut wire is an open, exactly like a missing part."}
+};
+function diagnosis(){
+  const lb=state.lastBreak; if(!lb) return '';
+  if(!state.power) return '<p class="trnote">Switch <b>POWER</b> on. A fault only shows itself when current is trying to flow. (Real technicians check powered circuits for voltage and unpowered ones for continuity.)</p>';
+  const base=computeSolution(NOBRK), after=computeSolution(state.brk);
+  let tA,tB,tName,tType;
+  if(lb.kind==='rmW'){ const w=state.wires[lb.id]; tA=w.a; tB=w.b; tName='the wire from '+hole(w.a)+' to '+hole(w.b); tType='wire'; }
+  else { const p=state.parts.find(x=>x.id===lb.id); if(!p) return ''; tType=p.type; tName='the '+partLabel(p)+' ('+partLoc(p)+')'; if(p.type==='npn'){tA=p.c;tB=p.e;} else {tA=p.a;tB=p.b;} }
+  const vA=after.res.v[after.find(pts[tA].node)]??0, vB=after.res.v[after.find(pts[tB].node)]??0, gap=Math.abs(vA-vB);
+  const short=lb.kind==='shP';
+  const rows=ledList().map(p=>({p,name:ledName(p),b:ledmA(p,base),a:ledmA(p,after)}));
+  const died=rows.filter(r=>r.b>1&&r.a<0.3), woke=rows.filter(r=>r.b<0.3&&r.a>1), hot=rows.filter(r=>r.a>30&&r.b<=30), moved=rows.filter(r=>Math.abs(r.a-r.b)>Math.max(0.5,0.15*r.b));
+  const names=a=>a.map(r=>r.name).join(' and ');
+  let head, how='';
+  if(short && tType==='npn'){ head='Stuck on — the input no longer controls it.'; how=woke.length?`${names(woke)} now lights no matter what the input does.`:`The load path is permanently closed${rows.length?'; try releasing the keys or changing the light: nothing turns it off now':''}.`; }
+  else if(short && hot.length){ head='Short circuit — too much current.'; how=hot.map(r=>`${r.name} now draws <b>${r.a.toFixed(0)} mA</b> (it was ${r.b.toFixed(1)} mA).`).join(' ')+' A small LED survives about 20–30 mA. At this level it would overheat within moments — and LEDs usually fail <b>open</b>, so this short would then break the loop as well. One fault causing a second is how real failures cascade.'; }
+  else if(short && tType==='led'){ head='Bypassed — the LED goes dark.'; how=`Current flows around ${tName} instead of through it.`+(moved.length?' '+moved.filter(r=>r.p.id!==lb.id).map(r=>`${r.name}: ${r.b.toFixed(1)} → ${r.a.toFixed(1)} mA.`).join(' '):''); }
+  else if(woke.length){ head='Something turned on that shouldn’t have.'; how=`${names(woke)} now lights (${woke.map(r=>r.a.toFixed(1)+' mA').join(', ')}). The part you changed was keeping two paths apart.`; }
+  else if(!short && died.length){ head='Open circuit — current stopped.'; how=`With ${tName} ${tType==='wire'?'cut':'removed'}, there is no complete loop through ${names(died)}. Current falls to zero in the <b>whole</b> loop, not just after the gap, because charge can’t pile up at a break.`; }
+  else if(moved.length){ head='Current re-routed.'; how=moved.map(r=>`${r.name}: ${r.b.toFixed(1)} → ${r.a.toFixed(1)} mA.`).join(' ')+' The part was sharing or steering current, so the rest of the circuit settled at a new balance.'; }
+  else { head='No visible change right now.'; how='Nothing that is currently switched on depended on it. Change the controls — hold a key, move the light or knob — and watch whether the fault shows up. Many real faults only appear under certain conditions.'; }
+  const why=(BREAK_WHY[tType]||{})[short?'sh':'rm']||'';
+  const meter = short ? `A meter across a short reads <b>${gap.toFixed(2)} V</b>: a short has no resistance for voltage to drop across.`
+                      : `A meter across the gap reads <b>${gap.toFixed(1)} V</b>.`+(died.length?' When current stops, the full push appears across the break. Technicians find opens exactly this way: measure across each part, and the one showing the supply voltage is the break (NEETS Module 21, Test Methods and Practices).':'');
+  let tab='<table class="trtab"><tr><th>LED</th><th>Before</th><th>After</th></tr>'+rows.map(r=>`<tr><td>${r.name}</td><td class="num">${r.b.toFixed(1)} mA</td><td class="num">${r.a.toFixed(1)} mA</td></tr>`).join('')+'</table>';
+  return `<div class="diag"><div class="dh">${head}</div><p><b>Where:</b> ${tName}.</p><p><b>What happened:</b> ${how}</p><p><b>Why:</b> ${why}</p><p><b>How you’d find it:</b> ${meter}</p>${rows.length?tab:''}</div>`;
+}
+function setBreak(kind,id){ clearBrk(); state.brk[kind].add(id); state.lastBreak={kind,id}; recompute(); drawOverlay(); renderProjCtl(true); }
+function breakPanel(keepOpen){
+  const P=PROJECTS[state.project]; const d=document.createElement('details'); d.className='breakit';
+  if(keepOpen||state.lastBreak) d.open=true;
+  const s=document.createElement('summary'); s.innerHTML='<span>Break it: what fails, where, and why</span>'; d.appendChild(s);
+  const body=document.createElement('div'); body.className='brk-body';
+  if(!P||P.kind!=='analog'||!state.parts.length){
+    body.innerHTML='<p class="trnote">This project runs as a behaviour model (its wiring isn’t drawn on the board yet), so there is nothing physical to remove. Break-it works on every wired project; full wiring for this one is queued.</p>';
+    d.appendChild(body); return d; }
+  body.innerHTML='<p class="trnote">Remove a part, short it out, or cut a wire. The circuit is re-solved and compared with the working version. One fault at a time, just like real troubleshooting.</p>';
+  const list=document.createElement('div'); list.className='brk-list';
+  const row=(label,loc,btns)=>{ const r=document.createElement('div'); r.className='brk-row'; r.innerHTML=`<div><b>${label}</b><small>${loc}</small></div>`; const g=document.createElement('div'); g.className='brk-btns';
+    btns.forEach(([t,kind,id])=>{ const b=document.createElement('button'); b.textContent=t; if(state.brk[kind].has(id)) b.classList.add('on'); b.onclick=()=>setBreak(kind,id); g.appendChild(b); }); r.appendChild(g); list.appendChild(r); };
+  state.parts.forEach(p=>row(partLabel(p),partLoc(p),[['Remove','rmP',p.id],['Short','shP',p.id]]));
+  state.wires.forEach((w,i)=>row('Wire',hole(w.a)+' → '+hole(w.b),[['Cut','rmW',i]]));
+  body.appendChild(list);
+  const out=document.createElement('div'); out.innerHTML=diagnosis(); body.appendChild(out);
+  if(state.lastBreak){ const fix=document.createElement('button'); fix.className='brk-fix'; fix.textContent='Repair everything'; fix.onclick=()=>{ clearBrk(); recompute(); drawOverlay(); renderProjCtl(true); }; body.appendChild(fix); }
+  d.appendChild(body); return d;
+}
+function choiceRows(box,P){
+  (P.choices||[]).forEach(c=>{ const r=ctlRow(c.label); const seg=document.createElement('div'); seg.className='seg wrap';
+    c.opts.forEach(([v,t])=>{ const b=document.createElement('button'); b.textContent=t; b.className=String(state.ctl[c.key])===String(v)?'on':'';
+      b.onclick=()=>{ state.ctl[c.key]=v; clearBrk(); state.npnMemo={}; state.wires=[]; state.parts=[]; P.build(); drawOverlay(); renderProjCtl(); };
+      seg.appendChild(b); }); r.appendChild(seg); box.appendChild(r); });
+}
+
+/* ---- origin notes: why each project's core part exists (fuller versions live in the Learn app) ---- */
+const TR_ORIGIN_SETS={
+ telegraph:{thing:"Signalling with light",verdict:"Designed on purpose",
+   need:"People needed to send messages faster than a rider or a ship could carry them.",
+   how:"Samuel Morse and Alfred Vail’s electric telegraph sent dots and dashes down a wire; its first public line, Washington to Baltimore, opened in 1844. Navies carried the same code onto flashing signal lamps so ships could talk by light.",
+   now:"Barely changed: navies still train signallers to send Morse by lamp, because light can’t be intercepted by radio direction-finders when a ship must keep radio silence."},
+ resistor:{thing:"The resistor",verdict:"Designed on purpose",
+   need:"After Ohm’s law (1827), engineers needed parts with known, repeatable resistance to set currents.",
+   how:"Wire coils came first; the 1920s radio boom made cheap carbon resistors and the colour-band code standard. Values like 47 and 470 are “preferred numbers”, spaced so each one’s tolerance just meets the next.",
+   now:"Refined: carbon became metal film, then surface-mount chips — more precise, quieter, smaller. The job is unchanged."},
+ diode:{thing:"The diode",verdict:"Found, then engineered",
+   need:"Early radio needed a detector, and power supplies needed to turn AC into DC: both need a one-way valve.",
+   how:"Braun saw one-way conduction in crystals (1874); Fleming built a vacuum-tube diode for Marconi’s radios (1904); Russell Ohl found the silicon p–n junction at Bell Labs in 1940 while working on radar detectors.",
+   now:"Transformed in form — tube, then crystal, then a grain of silicon — but the job is exactly the one Fleming built in 1904."},
+ light:{thing:"The light sensor (CdS cell)",verdict:"Found, then engineered",
+   need:"Streetlights and cameras needed to react to brightness with no one watching.",
+   how:"In 1873 Willoughby Smith, testing materials for undersea telegraph cables, found selenium’s resistance dropped in light. Cadmium sulfide cells like the kit’s later became the cheap standard for automatic streetlights and light meters.",
+   now:"Reworked: cadmium is toxic and now severely restricted in Europe (RoHS), so new designs use photodiodes and light-sensor chips."},
+ logic:{thing:"The logic gate",verdict:"Designed on purpose",
+   need:"Relay control circuits were wired by trial and error, and physicists needed circuits that fired only when two detectors fired together.",
+   how:"Boole’s algebra of true and false (1854) was pure maths. Bothe and Geiger’s coincidence method (1924) became electronic AND circuits by 1930, and Claude Shannon showed in 1937 that relay circuits follow Boole’s algebra exactly. NAND and NOR can each build every other gate — the Apollo Guidance Computer was built almost entirely from NOR gates.",
+   now:"The logic is unchanged since 1854; the hardware went from relays to tubes to transistors to the CMOS chips in every processor."},
+ astable:{thing:"The astable multivibrator",verdict:"Designed on purpose",
+   need:"First World War French military radio needed a way to calibrate receivers at many frequencies.",
+   how:"Henri Abraham and Eugène Bloch built it from two cross-coupled vacuum tubes and described it in 1919. Its square wave is rich in harmonics, which is where the name “multivibrator” comes from. R × C sets its timing.",
+   now:"Same circuit with transistors, but mostly replaced in products by the 555 timer chip (1971) and, today, by microcontrollers."},
+ tone:{thing:"The electronic tone",verdict:"Designed on purpose",
+   need:"Alarms, buzzers and instruments needed sounds made by circuits instead of bells and reeds.",
+   how:"Speed a multivibrator-style oscillator up from a few blinks a second to hundreds of cycles a second and the switching becomes a pitch you can hear. The speaker that plays it is Rice and Kellogg’s 1925 moving-coil design from General Electric.",
+   now:"The speaker is barely changed since 1925; the tone generator is now usually a chip or a microcontroller pin."}
+};
+const TR_ORIGIN_OF={7:'telegraph',8:'resistor',9:'resistor',10:'diode',19:'light',24:'logic',25:'logic',26:'logic',27:'logic',28:'logic',29:'astable',32:'tone',1:'light'};
+function trOriginEl(num){
+  const o=TR_ORIGIN_SETS[TR_ORIGIN_OF[num]]; if(!o) return null;
+  const d=document.createElement('details'); d.className='tr-origin';
+  let collapsed=false; try{ collapsed=localStorage.getItem('el500-trainer-oc')==='1'; }catch(e){}
+  if(!collapsed) d.open=true;
+  const s=document.createElement('summary'); s.innerHTML=`<span>Why this exists: ${o.thing}</span><em>${o.verdict}</em>`; d.appendChild(s);
+  const b=document.createElement('div'); b.className='tr-obody';
+  b.innerHTML=`<p><b>Problem:</b> ${o.need}</p><p><b>Found or designed:</b> ${o.how}</p><p><b>Then vs. now:</b> ${o.now}</p>`+(num===1?`<p class="tr-onote">This project pairs the light sensor with an electronic tone: light on the CdS cell sets the pitch.</p>`:'');
+  d.appendChild(b);
+  d.addEventListener('toggle',()=>{ try{ localStorage.setItem('el500-trainer-oc',d.open?'0':'1'); }catch(e){} });
+  return d;
+}
+
+/* projects list */
+function renderProjList(){
+  const list=document.getElementById('projList'); list.innerHTML='';
+  PROJECT_INDEX.forEach(([num,title])=>{
+    const live=LIVE.has(num);
+    const b=document.createElement('button'); b.className='proj'+(state.project===num?' sel':'');
+    b.innerHTML=`<div class="row"><span class="num">${String(num).padStart(2,'0')}</span><span class="t">${title}</span>
+      <span class="tag ${live?'live':'soon'}">${live?'LIVE':'roadmap'}</span></div>
+      ${live&&PROJECTS[num]?`<div class="d">${PROJECTS[num].desc}</div>`:''}`;
+    if(live) b.onclick=()=>loadProject(num);
+    else b.onclick=()=>{ selectTab('projects'); b.classList.add('sel'); setTimeout(()=>b.classList.remove('sel'),400); };
+    list.appendChild(b);
+  });
+  const more=document.createElement('p'); more.className='hint'; more.style.marginTop='10px';
+  more.textContent='Projects 51–254 (radio, sonic, decision-makers, op-amp, digital, counters, test gear) are in the manual and queued for build 2 auto-wiring.';
+  list.appendChild(more);
+}
+function loadProject(num){
+  const P=PROJECTS[num]; if(!P) return;
+  state.wires=[]; state.parts=[]; state.project=num; state.armed=null; state.pending=null; clearArmedSel(); clearBrk(); state.npnMemo={};
+  state.ctl={sw:'down',s1:false,s2:false,pot:0.5,light:0.7,tuning:0.5};
+  (P.choices||[]).forEach(c=>{ state.ctl[c.key]=c.def; }); Object.assign(state.ctl,P.ctlDefaults||{});
+  stopDynamic();
+  if(P.kind==='analog') P.build();
+  setHint(P.lineage ? `${P.lineage.year} · ${P.title}. ${P.desc}` : `Project ${num}: ${P.title}. ${P.desc}`);
+  renderProjCtl(); renderProjList(); renderLineage(); drawOverlay();
+  if(P.kind==='blink'||P.kind==='audio'){ if(state.power){ensureAudio();dynamicLoop();} else behavioralUpdate(); }
+  else if(P.kind==='logic') behavioralUpdate();
+  else recompute();
+  selectTab('build');
+}
+
+/* per-project control widgets */
+function renderProjCtl(keepBreakOpen){
+  const host=document.getElementById('projCtl'); host.innerHTML='';
+  if(!state.project){ return; }
+  const P=PROJECTS[state.project];
+  const box=document.createElement('div'); box.className='controls';
+  box.innerHTML= P.lineage ? `<h4>${P.lineage.year} · ${P.title}</h4>` : `<h4>${String(state.project).padStart(2,'0')} · ${P.title}</h4>`;
+  if(P.lineage) box.appendChild(lineageCard(P));
+  if(/from=learn/.test(location.hash||'') && new RegExp('p='+state.project+'(\\D|$)').test(location.hash)){ const bl=document.createElement('a'); bl.className='backlearn'; bl.href='electronics-basics.html'; bl.textContent='‹ Back to the lesson'; box.appendChild(bl); }
+  const tro=P.lineage?null:trOriginEl(state.project); if(tro) box.appendChild(tro);
+  choiceRows(box,P);
+  const need=new Set(P.controls||[]);
+  if(need.has('sw')){
+    const r=ctlRow('Select switch'); const seg=document.createElement('div'); seg.className='seg';
+    ['up','down'].forEach(pos=>{ const b=document.createElement('button'); b.textContent=pos.toUpperCase(); b.className=state.ctl.sw===pos?'on':'';
+      b.onclick=()=>{ state.ctl.sw=pos; if(state.project===10){clearBrk();state.wires=[];state.parts=[];PROJECTS[10].build();drawOverlay();} reEval(); renderProjCtl(); };
+      seg.appendChild(b);}); r.appendChild(seg); box.appendChild(r);
+  }
+  ['s1','s2'].forEach(k=>{ if(need.has(k)){ const r=ctlRow(k.toUpperCase()+' key');
+    const b=document.createElement('button'); b.className='keybtn'; b.textContent='HOLD';
+    const dn=()=>{ state.ctl[k]=true; b.classList.add('held'); reEval(); };
+    const up=()=>{ state.ctl[k]=false; b.classList.remove('held'); reEval(); };
+    b.addEventListener('pointerdown',e=>{e.preventDefault();dn();}); b.addEventListener('pointerup',up); b.addEventListener('pointerleave',up); b.addEventListener('pointercancel',up);
+    r.appendChild(b); box.appendChild(r); }});
+  if(need.has('pot')){ box.appendChild(slider('Control knob','pot')); }
+  if(need.has('light')){ box.appendChild(slider('Light on CdS','light')); }
+  if(need.has('tuning')){ box.appendChild(slider('Tuning','tuning')); }
+  const ro=document.createElement('div'); ro.className='readout'; box.appendChild(ro);
+  const rd=document.createElement('div'); rd.id='trRead'; box.appendChild(rd);
+  if(P.push){ const pp=document.createElement('p'); pp.className='push'; pp.innerHTML='<b>Push further:</b> '+P.push; box.appendChild(pp); }
+  box.appendChild(breakPanel(keepBreakOpen));
+  host.appendChild(box);
+  reEval(); updateReadings();
+}
+function ctlRow(label){ const r=document.createElement('div'); r.className='ctl'; const l=document.createElement('label'); l.textContent=label; r.appendChild(l); return r; }
+function slider(label,key){ const r=ctlRow(label); const i=document.createElement('input'); i.type='range'; i.min=0;i.max=1;i.step=0.01; i.value=state.ctl[key];
+  i.oninput=()=>{ state.ctl[key]=parseFloat(i.value); if(key==='pot'){const k=document.getElementById('potKnob'); if(k){const a=-Math.PI*0.75+state.ctl.pot*Math.PI*1.5;const cx=872,cy=window.BB.modY+15;k.setAttribute('x2',cx+Math.cos(a)*11);k.setAttribute('y2',cy+Math.sin(a)*11);}}
+    if(key==='light'){const c=document.getElementById('cdsLamp'); if(c)c.setAttribute('fill',`rgb(${40+state.ctl.light*120|0},${30+state.ctl.light*110|0},${20+state.ctl.light*40|0})`);}
+    reEval(); }; r.appendChild(i); return r;
+}
+function reEval(){
+  const P=state.project?PROJECTS[state.project]:null;
+  if(!P||P.kind==='analog'){ recompute(); }
+  else if(P.kind==='logic'){ behavioralUpdate(); }
+  else { if(!raf && state.power){ dynamicLoop(); } else if(!state.power){ behavioralUpdate(); } }
+}
+
+/* mechatronics roadmap */
+const MECHA=[
+  ["MCU core","A microcontroller block (digital I/O, PWM, ADC) that reads the breadboard nodes and drives outputs — the bridge from analog kit to programmable logic."],
+  ["DC motor + H-bridge","Direction & speed control, back-EMF visualization, current draw on the meter."],
+  ["Servo & stepper","Angle/position control from PWM, with a live arm/indexer animation on the panel."],
+  ["Sensor pack","Ultrasonic range, IR reflectance, IMU tilt, potentiometer — feeding the same node engine CdS uses today."],
+  ["Driver logic","Line-follow, obstacle-stop, and PID demos wiring sensors→MCU→motors as runnable projects."]
+];
+function renderMecha(){ const l=document.getElementById('mechaList'); l.innerHTML='';
+  MECHA.forEach(([t,d],i)=>{ const el=document.createElement('div'); el.className='proj'; el.style.cursor='default';
+    el.innerHTML=`<div class="row"><span class="num">M${i+1}</span><span class="t">${t}</span><span class="tag soon">build 2</span></div><div class="d">${d}</div>`;
+    l.appendChild(el); }); }
+
+/* =======================================================================
+   8. BOOT
+   ===================================================================== */
+buildPoints(); renderPanel(); drawOverlay();
+buildWireChips(); fillResVals(); drawBinGlyphs(); renderProjList(); renderMecha(); renderLineage();
+document.getElementById('buildBadge').textContent='build 2026.11.08-5';
+selectTab('build');
+recompute();
+/* ---- handoff from the Learn app: electronics-trainer.html#p=19&from=learn ---- */
+function openFromLink(){
+  const m=/p=(\d+)/.exec(location.hash||''); if(!m) return;
+  const n=+m[1]; if(!(LIVE.has(n)&&PROJECTS[n])) { setHint('That link asked for project '+n+', which is not playable yet. Pick a LIVE project from the Projects tab.'); return; }
+  loadProject(n);
+  if(/from=learn/.test(location.hash)){
+    const host=document.querySelector('#projCtl .controls');
+    if(host && !host.querySelector('.backlearn')){ const a=document.createElement('a'); a.className='backlearn'; a.href='electronics-basics.html'; a.textContent='‹ Back to the lesson'; host.insertBefore(a,host.children[1]||null); }
+    setHint(`Project ${n} is wired for you. Switch POWER on to run it, then use the controls below.`);
+  }
+}
+window.addEventListener('hashchange',openFromLink); openFromLink();
+try{ state.xray=localStorage.getItem('el500-xray')==='1'; }catch(e){}
+document.getElementById('xrayBtn').onclick=()=>{ state.xray=!state.xray; try{ localStorage.setItem('el500-xray',state.xray?'1':'0'); }catch(e){} drawXray(); };
+drawXray();
+</script>
+</body>
+</html>

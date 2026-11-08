@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!-- Electronics Bench · start page · links the course and the trainer. Keep all three files in one folder. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electronics Bench</title>
+<style>
+  :root{--bench:#15171c;--card:#1b1f26;--ink:#e9edf1;--muted:#9aa6b2;--line:#2b313b;--copper:#e0922f;--phos:#46d39a}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(900px 500px at 80% -10%,#1d222b,transparent 60%),var(--bench);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55;display:flex;align-items:center;justify-content:center;padding:32px 16px}
+  main{max-width:760px;width:100%}
+  .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);font-weight:600}
+  h1{font-size:clamp(30px,6vw,46px);line-height:1.05;margin:.3em 0 .25em;letter-spacing:-.01em}
+  p.lead{color:var(--muted);font-size:17px;max-width:58ch;margin:0 0 28px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;transition:border-color .15s}
+  a.card:hover,a.card:focus-visible{border-color:var(--copper);outline:none}
+  .k{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+  .k.c{color:var(--phos)} .k.t{color:var(--copper)}
+  .card h2{font-size:21px;margin:6px 0 6px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .card span.go{display:inline-block;margin-top:12px;color:var(--copper);font-size:14px}
+  footer{margin-top:26px;color:var(--muted);font-size:13px}
+  footer a{color:var(--ink)}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Electronics from zero</div>
+  <h1>Electronics Bench</h1>
+  <p class="lead">A guided course and a working 500-in-1 lab, both offline in your browser. Learn why each part exists, build the oldest versions of the ideas, then break them and see what fails.</p>
+  <div class="cards">
+    <a class="card" href="electronics-basics.html"><div class="k c">The course</div><h2>Learn</h2><p>Notation, Ohm’s law, every core component with a live simulation, logic as flowing liquid, the history behind each part, recall checks and a NEETS tracker.</p><span class="go">Start learning ›</span></a>
+    <a class="card" href="electronics-trainer.html"><div class="k t">The bench</div><h2>Trainer</h2><p>The 500-in-1 panel with a real circuit solver: the Lineage track from Volta to Apollo, break-it mode, and an X-ray view of the board.</p><span class="go">Open the bench ›</span></a>
+  </div>
+  <footer>Teaching models, not datasheets — see <a href="MODEL-LIMITS.md">what’s simplified</a>. MIT licensed.</footer>
+</main>
+</body>
+</html>
