@@ -2,6 +2,14 @@
 
 Builds are stamped `build YYYY.MM.DD-n` with the UTC ship time in each file's header. The two apps carry their own build numbers.
 
+## 2026-11-09
+
+### Course — build 2026.11.09-1
+- "Build it for real" for the blinker and logic-gate projects now opens fully wired circuits (the honest-limit note is gone).
+
+### Trainer — build 2026.11.09-1
+- **Every live kit project is now wired on the board** and runs on the solver: the NOT, OR, AND, NOR and NAND gates (#24–28) as transistor logic, and the multivibrator (#29), adjustable oscillator (#32) and light-controlled bird (#1) as real two-transistor astables. **Capacitors now charge over time**: the blinker steps forward on screen in real time, and audio oscillators run in fast-forward to measure the pitch you hear. Measured rates match RC theory (blinker within 3% of the swing-corrected formula; oscillator within 8% of 0.69 RC). **Transistor bases now draw current** through a modelled base–emitter junction. Break-it on timed circuits explains what happens over time. Fixed a solver bug: a diode that was on could hold itself on with reverse current, and two parts could flip on and off forever; this made the NAND gate's output depend on what you had pressed before.
+
 ## 2026-11-08
 
 ### Course (`electronics-basics.html`) — builds 2026.11.08-1 to -8

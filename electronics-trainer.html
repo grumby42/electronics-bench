@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- ===================================================================
      EL500-SIM  ·  500-in-1 Electronic Lab → Mechatronics trainer
-     build 2026.11.08-6   ·   shipped 2026-11-08T19:42:20Z (UTC)
+     build 2026.11.09-1   ·   shipped 2026-11-09T03:14:36Z (UTC)
      single-file, offline, no external deps
      ==================================================================== -->
 <html lang="en">
@@ -212,7 +212,7 @@
   <button class="pw" id="powerBtn" aria-pressed="false" title="Master power (6×AA → 9V)">
     <span class="dot"></span><label>POWER</label><span class="sw"></span>
   </button>
-  <span class="badge" id="buildBadge">build 2026.11.08-6</span>
+  <span class="badge" id="buildBadge">build 2026.11.09-1</span>
 </header>
 
 <main>
@@ -288,7 +288,7 @@
       <h3>How it works</h3>
       <p class="hint">This recreates the kit's <b>function</b>, not a photo. The panel exposes the same connection points as the real lab: six stepped battery taps (V1=1.5 V … V6=9 V), the negative rail, the breadboard (rows A–V, columns 1–30, every block of five holes is one node), and the fixed modules with their numbered spring terminals.</p>
       <p class="hint"><b>Live nodes.</b> Hover or tap-hold any point to see every point it is electrically tied to glow amber — that is the union-find node engine the kit teaches you to reason about.</p>
-      <p class="hint"><b>Simulation.</b> Switch on power and the analog solver (nodal analysis with diode/LED forward-drop and transistor-as-switch models) computes real node voltages every change, so LED brightness, the meter and tone respond to what you actually wired. Capacitor-timed circuits (multivibrator, oscillators) use behavioral timing models.</p>
+      <p class="hint"><b>Simulation.</b> Switch on power and the analog solver (nodal analysis with diode/LED forward-drop and transistor-as-switch models) computes real node voltages every change, so LED brightness, the meter and tone respond to what you actually wired. Capacitors charge in time: blinkers step forward on screen in real time, and audio oscillators are run in fast-forward to measure the pitch you hear.</p>
       <p class="hint"><b>Two layouts.</b> Desktop puts the panel beside the bins; portrait phones stack the panel over a bottom tab bar and scale the SVG to fit. Pinch-zoom is enabled.</p>
     </section>
   </aside>
@@ -334,20 +334,28 @@ function solveDC(nodeKeys, fixed, resistors, isources){
   return v;
 }
 // resistors fixed; diodes [{a(anode),b(cathode),vth,ron}]; transistors [{b,c,e,von,ron}] NPN switch
-function solveCircuit(nodeKeys, fixed, baseR, diodes, npns){
-  diodes=diodes||[]; npns=npns||[];
+// npns also get a base-emitter junction (a diode, 0.65 V / 50 Ω) so the base draws current and clamps like a real one.
+// extra = {R:[...], CS:[...]} adds capacitor companion models for time-stepping.
+const BE_VTH=0.65, BE_RON=50;
+function solveCircuit(nodeKeys, fixed, baseR, diodes, npns, extra){
+  diodes=diodes||[]; npns=npns||[]; extra=extra||{R:[],CS:[]};
+  const nD=diodes.length; diodes=diodes.concat(npns.map(t=>({a:t.b,b:t.e,vth:BE_VTH,ron:BE_RON,_be:true})));
   let dOn=diodes.map(()=>false), tOn=npns.map(t=>!!t.init), v={}; // transistors may start from their last state: that is what lets a flip-flop remember
   for(let it=0;it<90;it++){
-    const R=[...baseR], CS=[];
+    const R=[...baseR,...extra.R], CS=[...extra.CS];
     diodes.forEach((d,i)=>{ if(dOn[i]){ const g=1/d.ron; R.push({a:d.a,b:d.b,g}); CS.push({node:d.a,amps:g*d.vth},{node:d.b,amps:-g*d.vth}); }});
     npns.forEach((t,i)=>{ if(tOn[i]) R.push({a:t.c,b:t.e,g:1/t.ron}); });
     v=solveDC(nodeKeys,fixed,R,CS);
     let ch=false;
-    diodes.forEach((d,i)=>{ const vab=(v[d.a]??0)-(v[d.b]??0); const want=dOn[i]?(vab>d.vth*0.3):(vab>d.vth); if(want!==dOn[i]){dOn[i]=want;ch=true;} });
+    // An on diode stays on only while current really flows forward (a looser rule let one hold itself on).
+    // Turn-ons are applied before turn-offs: switching both at once can make two states alternate forever.
+    const offs=[];
+    diodes.forEach((d,i)=>{ const vab=(v[d.a]??0)-(v[d.b]??0); if(!dOn[i]&&vab>d.vth){dOn[i]=true;ch=true;} else if(dOn[i]&&!(vab>d.vth+1e-7)) offs.push(i); });
     npns.forEach((t,i)=>{ const vbe=(v[t.b]??0)-(v[t.e]??0); const want=vbe>t.von; if(want!==tOn[i]){tOn[i]=want;ch=true;} });
+    if(!ch&&offs.length){ offs.forEach(i=>dOn[i]=false); ch=true; }
     if(!ch) break;
   }
-  return {v, diodeStates:dOn, npnStates:tOn};
+  return {v, diodeStates:dOn.slice(0,nD), beStates:dOn.slice(nD), npnStates:tOn};
 }
 
 /* =======================================================================
@@ -544,7 +552,7 @@ function renderPoints(){
    ===================================================================== */
 const state={
   power:false, mode:'free', project:null,
-  wires:[], parts:[], npnMemo:{}, brk:{rmP:new Set(),shP:new Set(),rmW:new Set()}, lastBreak:null, lastSol:null,
+  wires:[], parts:[], npnMemo:{}, capV:{}, capPrev:{}, sim:{t:0,edges:[]}, tone:null, brk:{rmP:new Set(),shP:new Set(),rmW:new Set()}, lastBreak:null, lastSol:null,
   pending:null, armed:null, armedColor:'#e8e8e8',
   ctl:{ sw:'down', s1:false, s2:false, pot:0.5, light:0.7, tuning:0.5 }
 };
@@ -661,6 +669,7 @@ function drawPartGlyph(p){
   } else if(p.type==='cap'){
     box.appendChild(svg('line',{x1:-3,y1:-9,x2:-3,y2:9,stroke:'#444','stroke-width':3}));
     box.appendChild(svg('line',{x1:3,y1:-9,x2:3,y2:9,stroke:'#444','stroke-width':3}));
+    if(p.value) box.appendChild(text(0,-12,(p.value>=1?p.value:p.value*1000+'n')+(p.value>=1?'µ':''),'silktiny',8));
   }
   g.appendChild(box);
   return g;
@@ -695,19 +704,66 @@ function recompute(){
   if(state.project && PROJECTS[state.project] && PROJECTS[state.project].kind!=='analog'){
     behavioralUpdate(); return;
   }
-  const sol=computeSolution(state.brk); state.lastSol=sol;
-  if(state.power) sol.npns.forEach((t,i)=>{ state.npnMemo[t.id]=!!sol.res.npnStates[i]; }); // remember for next time
+  if(!state.power){ state.capV={}; state.capPrev={}; state.sim={t:0,edges:[]}; state.tone=null; }
+  const sol=simStep(DT_INSTANT); state.lastSol=sol;
   applyResults(sol.res,sol.diodes,sol.find); updateReadings();
+  if(state.power&&hasCaps()){ if(toneMode()) scheduleTone(); else ensureSim(); }
+}
+/* ---- time: capacitors charge, so the circuit is stepped forward in small slices of time ---- */
+function hasCaps(){ return state.parts.some(p=>p.type==='cap'&&!state.brk.rmP.has(p.id)&&!state.brk.shP.has(p.id)); }
+function toneMode(){ const P=state.project&&PROJECTS[state.project]; return !!(P&&P.timed==='tone'); }
+function simStep(h,find){
+  const sol=computeSolution(state.brk,h,find);
+  if(state.power){ const v=sol.res.v; state.capPrev={};
+    sol.caps.forEach(c=>{ state.capPrev[c.id]=c.v0; state.capV[c.id]=(v[c.a]??0)-(v[c.b]??0); });
+    sol.npns.forEach((t,i)=>{ const on=!!sol.res.npnStates[i]; if(i===0&&on&&state.npnMemo[t.id]===false) state.sim.edges.push(state.sim.t); state.npnMemo[t.id]=on; }); // remember for next time
+    state.sim.t+=h; if(state.sim.edges.length>12) state.sim.edges.shift(); }
+  return sol;
+}
+function simRate(){ const e=state.sim.edges; if(e.length<3) return null; const span=e[e.length-1]-e[1]; return span>0?(e.length-2)/span:null; }
+let simRaf=null, simLast=0, simReadT=0;
+function ensureSim(){ if(simRaf||!state.power||!hasCaps()||toneMode()) return; simLast=performance.now(); simRaf=requestAnimationFrame(simLoop); }
+function simLoop(now){
+  simRaf=null; if(!state.power||!hasCaps()||toneMode()) return;
+  const P=state.project&&PROJECTS[state.project], h=(P&&P.simH)||0.002;
+  const real=Math.max(0.001,Math.min(0.05,(now-simLast)/1000)); simLast=now;
+  const n=Math.max(1,Math.round(real/h)), find=buildNodeMap(state.brk); let sol;
+  for(let i=0;i<n;i++) sol=simStep(real/n,find);
+  state.lastSol=sol; applyResults(sol.res,sol.diodes,sol.find);
+  if(now-simReadT>200){ simReadT=now; updateReadings(); }
+  simRaf=requestAnimationFrame(simLoop);
+}
+function stopSim(){ if(simRaf) cancelAnimationFrame(simRaf); simRaf=null; }
+/* audio-rate oscillators are too fast to step on screen, so the circuit is run in fast-forward to measure its pitch,
+   and that measured pitch is what you hear */
+let toneTimer=null;
+function scheduleTone(){ clearTimeout(toneTimer); toneTimer=setTimeout(measureTone,25); }
+function measureTone(){
+  if(!state.power||!toneMode()) return;
+  const P=PROJECTS[state.project], h=P.simH||2e-5, find=buildNodeMap(state.brk);
+  state.capV={}; state.npnMemo={}; state.sim={t:0,edges:[]};
+  const leds=ledList(), lit=leds.map(()=>0); let sol, n=0, iMin=1e9, iMax=-1e9;
+  const spk=()=>{ const v=sol.res.v; return ((v[find('spn:64')]??0)-(v[find('spn:68')]??0))/8; };
+  for(let i=0;i<20000;i++){ sol=simStep(h,find); n++;
+    if(i>200){ const I=spk(); iMin=Math.min(iMin,I); iMax=Math.max(iMax,I); leds.forEach((p,j)=>{ lit[j]+=ledmA(p,sol); }); }
+    if(state.sim.edges.length>=9||(state.sim.t>0.08&&state.sim.edges.length>=4)) break; }
+  const f=simRate(), swing=(iMax-iMin)*1000;
+  state.tone={f, swing, ok:!!f&&swing>5};
+  state.lastSol=sol; applyResults(sol.res,sol.diodes,sol.find);
+  leds.forEach((p,j)=>{ p._bright=Math.min(1,lit[j]/Math.max(1,n-200)/12); }); drawOverlayBrightness();
+  if(state.tone.ok){ audioTone(f,0.06); setSpeaker(true); } else { audioOff(); setSpeaker(false); }
+  updateReadings();
 }
 function npnStart(id){ if(id in state.npnMemo) return state.npnMemo[id]; const P=state.project&&PROJECTS[state.project]; return !!(P&&P.npnInit&&P.npnInit[id]); }
-function computeSolution(brk){
-  brk=brk||NOBRK;
-  const find=buildNodeMap(brk);
+const DT_INSTANT=1e-4; // an ordinary re-solve advances time by 0.1 ms, so capacitors hold their charge across a click
+function computeSolution(brk,dt,findCache){
+  brk=brk||NOBRK; dt=dt||DT_INSTANT;
+  const find=findCache||buildNodeMap(brk);
   // fixed sources
   const fixed={};
   if(state.power){ for(let v=1;v<=6;v++) fixed[find(`pw:V${v}`)]=1.5*v; fixed[find('pw:N')]=0; }
   // collect element node keys
-  const baseR=[], diodes=[], npns=[];
+  const baseR=[], diodes=[], npns=[], caps=[], ext={R:[],CS:[]};
   const allNodes=new Set();
   const nk=nodeKey=>{ const k=find(nodeKey); allNodes.add(k); return k; };
   // ensure rail+gnd present
@@ -718,9 +774,13 @@ function computeSolution(brk){
     if(p.type==='res') baseR.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),g:1/p.value});
     else if(p.type==='led') diodes.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),vth:1.8,ron:28,_led:p});
     else if(p.type==='diode') diodes.push({a:nk(pts[p.a].node),b:nk(pts[p.b].node),vth:0.6,ron:8});
-    else if(p.type==='cap'){ /* open at DC */ }
+    else if(p.type==='cap'){ // backward-Euler companion: conductance C/dt in parallel with a source that holds last step's charge
+      const c={a:nk(pts[p.a].node),b:nk(pts[p.b].node),g:p.value*1e-6/dt,id:p.id,v0:state.capV[p.id]||0}; caps.push(c);
+      ext.R.push({a:c.a,b:c.b,g:c.g}); ext.CS.push({node:c.a,amps:c.g*c.v0},{node:c.b,amps:-c.g*c.v0}); }
     else if(p.type==='npn') npns.push({b:nk(pts[p.b].node),c:nk(pts[p.c].node),e:nk(pts[p.e].node),von:0.6,ron:25,id:p.id,init:npnStart(p.id)});
   });
+  // speaker voice coil between springs 64 and 68: about 8 Ω
+  baseR.push({a:nk('spn:64'),b:nk('spn:68'),g:1/8});
   // CdS as light-dependent resistor across its springs (if user wired it). bright→low R
   const cdsR = 1000*Math.pow(10, 3*(1-state.ctl.light)); // real CdS: ~1 kΩ in bright light to ~1 MΩ in the dark, changing by powers of ten
   baseR.push({a:nk('spn:19'),b:nk('spn:20'),g:1/cdsR});
@@ -729,8 +789,8 @@ function computeSolution(brk){
   baseR.push({a:nk('spn:58'),b:nk('spn:59'),g:1/Math.max(50,pv*tot)});
   baseR.push({a:nk('spn:59'),b:nk('spn:60'),g:1/Math.max(50,(1-pv)*tot)});
 
-  const res = state.power ? solveCircuit([...allNodes],fixed,baseR,diodes,npns) : {v:{},diodeStates:[],npnStates:[]};
-  return {res,diodes,npns,find};
+  const res = state.power ? solveCircuit([...allNodes],fixed,baseR,diodes,npns,ext) : {v:{},diodeStates:[],beStates:[],npnStates:[]};
+  return {res,diodes,npns,caps,dt,find};
 }
 
 function applyResults(res,diodes,find){
@@ -829,8 +889,25 @@ function dynamicLoop(){
 function W(a,b,color){ state.wires.push({a,b,color:color||'#cdd2d6'}); }
 function R(a,b,v){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'res',a,b,value:v}); }
 function LED(a,b){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'led',a,b}); }
+function CAP(a,b,uF){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'cap',a,b,value:uF}); }
 function DIO(a,b){ state.parts.push({id:'p'+Math.random().toString(36).slice(2,7),type:'diode',a,b}); }
 
+// gate helpers: one transistor = one switch to ground; inputs reach a base through 10 kΩ
+function NPN(id,b,c,e){ state.parts.push({id,type:'npn',b,c,e}); }
+function gateOut(){ W('pw:V6:0','bb:B16','#d24b4b'); R('bb:B17','bb:D17',470); R('bb:D18','bb:F18',220); LED('bb:F19','bb:H19'); W('bb:H20','pw:N:20','#33373d'); } // output node = row D, holes 16–20
+function inS1(base){ W('pw:V6:1','sp:89','#d24b4b'); R('sp:90',base,10000); }
+function inS2(base){ W('pw:V6:2','sp:87','#e8c84a'); R('sp:88',base,10000); }
+function inSw(base){ W('pw:V6:2','sp:73','#e8c84a'); R('sp:72',base,10000); } // switch UP = 1
+// two-transistor astable: Q1 on holes 6–10, Q2 on 16–20, each collector coupled to the other's base by a capacitor.
+// Q1's base resistor is added by each project (it is the part you adjust).
+function astable(o){
+  if(o.load==='led'){ W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B7','bb:D7',470); LED('bb:D8','bb:F8');
+                      W('pw:V6:1','bb:B16','#d24b4b'); R('bb:B17','bb:D17',470); LED('bb:D18','bb:F18'); }
+  else { W('pw:V6:0','bb:B6','#d24b4b'); R('bb:B7','bb:F7',1000); W('pw:V6:1','sp:64','#d24b4b'); W('sp:68','bb:B16','#e0922f'); R('bb:B17','bb:F17',100); }
+  NPN('q1','bb:P6','bb:F9','pw:N:9'); NPN('q2','bb:P16','bb:F19','pw:N:19');
+  CAP('bb:F10','bb:P17',o.c); CAP('bb:F20','bb:P7',o.c);
+  W('pw:V6:2','bb:L16','#d24b4b'); R('bb:L17','bb:P18',o.rb2);
+}
 const PROJECTS={
   7:{num:7,title:"Light Telegraph",kind:"analog",
      desc:"Press the key, the LED lights. The simplest closed/open-circuit demo.",
@@ -876,39 +953,43 @@ const PROJECTS={
        state.parts.push({id:'q1',type:'npn',b:'bb:F6',c:'bb:H11',e:'pw:N:11'});
        W('pw:V6:1','bb:B11','#d24b4b'); R('bb:B11','bb:D11',470); LED('bb:D11','bb:H11');
      }},
-  24:{num:24,title:"Inverter (NOT)",kind:"logic",
-     desc:"Output is the opposite of the input. Key released → output 1 (LED on). Key pressed → 0.",
+  24:{num:24,title:"Inverter (NOT)",kind:"analog",ledNames:['Output LED'],
+     desc:"Output is the opposite of the input. Key released → output 1 (LED on). Key pressed → the transistor pulls the output down to 0.",
      controls:["s1"],
-     build(){}, eval(c,pw){ const inp=c.s1?1:0; const out=inp?0:1; return {on:!!out, read:`IN = ${inp}\nOUT = ${out}`}; }},
-  25:{num:25,title:"OR Gate",kind:"logic",
-     desc:"Output is 1 when either input is 1. Hold S1 or S2 (or both).",
+     build(){ gateOut(); NPN('q1','bb:L6','bb:D19','pw:N:19'); inS1('bb:L7'); }},
+  25:{num:25,title:"OR Gate",kind:"analog",ledNames:['Output LED'],
+     desc:"Output is 1 when either input is 1. Hold S1 or S2 (or both). Built the way transistor logic does it: a NOR gate followed by an inverter.",
      controls:["s1","s2"],
-     build(){}, eval(c){ const a=c.s1?1:0,b=c.s2?1:0,o=(a||b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nA OR B = ${o}`}; }},
-  26:{num:26,title:"AND Gate",kind:"logic",
-     desc:"Output is 1 only when both inputs are 1. Set the switch up and hold S1.",
+     build(){ // stage 1: NOR on block 16–20 (pull-up 4.7 kΩ); stage 2: inverter on block 21–25 drives the LED
+       W('pw:V6:0','bb:B16','#d24b4b'); R('bb:B17','bb:D17',4700);
+       NPN('q1','bb:L6','bb:D19','pw:N:19'); inS1('bb:L7'); NPN('q2','bb:L11','bb:D20','pw:N:20'); inS2('bb:L12');
+       R('bb:D18','bb:P18',10000); NPN('q3','bb:P17','bb:D25','pw:N:25');
+       W('pw:V6:3','bb:B21','#d24b4b'); R('bb:B22','bb:D22',470); R('bb:D23','bb:F23',220); LED('bb:F24','bb:H24'); W('bb:H25','pw:N:25','#33373d'); }},
+  26:{num:26,title:"AND Gate",kind:"analog",ledNames:['Output LED'],
+     desc:"Output is 1 only when both inputs are 1. Two transistors in a stack: current reaches the LED only if both are switched on. Set the switch up and hold S1.",
      controls:["sw","s1"],
-     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=(a&&b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nA AND B = ${o}`}; }},
-  27:{num:27,title:"NOR Gate",kind:"logic",
-     desc:"Inverted OR — output 1 only when both inputs are 0.",
+     build(){ W('pw:V6:0','bb:B16','#d24b4b'); R('bb:B17','bb:D17',470); LED('bb:D18','bb:F18');
+       NPN('qa','bb:L6','bb:F19','bb:J19'); NPN('qb','bb:L11','bb:J20','pw:N:20'); inSw('bb:L7'); inS1('bb:L12'); }},
+  27:{num:27,title:"NOR Gate",kind:"analog",ledNames:['Output LED'],
+     desc:"Inverted OR — output 1 only when both inputs are 0. Either transistor can pull the shared output down.",
      controls:["sw","s1"],
-     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=!(a||b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nNOT(A OR B) = ${o}`}; }},
-  28:{num:28,title:"NAND Gate",kind:"logic",
-     desc:"Inverted AND — output 0 only when both inputs are 1.",
+     build(){ gateOut(); NPN('q1','bb:L6','bb:D19','pw:N:19'); inSw('bb:L7'); NPN('q2','bb:L11','bb:D20','pw:N:20'); inS1('bb:L12'); }},
+  28:{num:28,title:"NAND Gate",kind:"analog",ledNames:['Output LED'],
+     desc:"Inverted AND — output 0 only when both inputs are 1. The transistor stack must be fully on to pull the output down.",
      controls:["sw","s1"],
-     build(){}, eval(c){ const a=c.sw==='up'?1:0,b=c.s1?1:0,o=!(a&&b)?1:0; return {on:!!o, read:`A=${a}  B=${b}\nNOT(A AND B) = ${o}`}; }},
-  29:{num:29,title:"Astable Multivibrator",kind:"blink",
-     desc:"A free-running square-wave oscillator — LED1 blinks on its own. The Control knob sets the rate.",
+     build(){ gateOut(); NPN('qa','bb:L6','bb:D20','bb:N22'); NPN('qb','bb:L11','bb:N23','pw:N:23'); inSw('bb:L7'); inS1('bb:L12'); }},
+  29:{num:29,title:"Astable Multivibrator",kind:"analog",timed:'live',simH:0.002,npnInit:{q1:true},ledNames:['LED 1 (Q1)','LED 2 (Q2)'],
+     desc:"Two transistors, two capacitors, no clock: each transistor switches the other off until its capacitor recharges. The LEDs take turns. The Control knob changes one charging resistor, and so the rate.",
      controls:["pot"],
-     build(){}, eval(c,pw,t){ const hz=0.7+c.pot*5; const on=(Math.floor(t*hz*2)%2===0); return {on, read:`f ≈ ${hz.toFixed(1)} Hz`}; }},
-  32:{num:32,title:"Adjustable Oscillator",kind:"audio",
-     desc:"A pulse-tone oscillator. The Control knob changes pitch — like the kit's electronic organ note.",
+     build(){ astable({load:'led',c:10,rb2:47000}); W('pw:V6:3','bb:L6','#d24b4b'); R('bb:L7','bb:N7',22000); W('bb:N8','sp:60','#4a78d2'); W('sp:59','bb:P8','#4a78d2'); }},
+  32:{num:32,title:"Adjustable Oscillator",kind:"analog",timed:'tone',simH:2e-5,npnInit:{q1:true},
+     desc:"The same circuit as the blinker with capacitors 200 times smaller, so it switches hundreds of times a second and the speaker hums. The Control knob sets the pitch.",
      controls:["pot"],
-     build(){}, eval(c,pw){ const f=120+c.pot*1600; return {freq:f, vol:0.06, read:`tone ≈ ${f.toFixed(0)} Hz`}; }},
-  1:{num:1,title:"Light-Controlled Bird",kind:"audio",
-     desc:"A chirp whose pitch follows the light on the CdS cell plus the Control knob. Slide Light & Control.",
+     build(){ astable({load:'spk',c:0.05,rb2:22000}); W('pw:V6:3','bb:L6','#d24b4b'); R('bb:L7','bb:N7',10000); W('bb:N8','sp:60','#4a78d2'); W('sp:59','bb:P8','#4a78d2'); }},
+  1:{num:1,title:"Light-Controlled Bird",kind:"analog",timed:'tone',simH:2e-5,npnInit:{q1:true},
+     desc:"The oscillator again, but one charging resistor is the light sensor. More light, lower resistance, faster charging, higher pitch. Slide Light and Control.",
      controls:["light","pot"],
-     build(){}, eval(c,pw){ const base=300+c.light*900; const f=base*(0.6+c.pot*0.8); const warble=1+0.15*Math.sin(performance.now()/120);
-       return {freq:f*warble, vol:0.05, read:`chirp ≈ ${(f).toFixed(0)} Hz`}; }}
+     build(){ astable({load:'spk',c:0.05,rb2:22000}); W('pw:V6:3','bb:L6','#d24b4b'); R('bb:L7','bb:N7',4700); W('bb:N8','sp:19','#4a78d2'); W('sp:20','sp:60','#4a78d2'); W('sp:59','bb:P8','#4a78d2'); }}
 };
 // full 254-project index (titles from manual contents) — live ones flagged above
 const PROJECT_INDEX=[
@@ -972,7 +1053,7 @@ powerBtn.addEventListener('click',()=>{ state.power=!state.power; if(!state.powe
   recompute(); });
 
 /* clear / free */
-document.getElementById('clearBtn').onclick=()=>{ clearBrk(); state.npnMemo={}; state.mystery=null; state.wires=[]; state.parts=[]; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); recompute(); drawOverlay(); };
+document.getElementById('clearBtn').onclick=()=>{ clearBrk(); state.npnMemo={}; state.capV={}; state.sim={t:0,edges:[]}; state.tone=null; state.mystery=null; state.wires=[]; state.parts=[]; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); recompute(); drawOverlay(); };
 document.getElementById('freeBtn').onclick=()=>{ state.mode='free'; state.project=null; stopDynamic(); renderProjCtl(); renderProjList(); setHint(defaultHint); recompute(); };
 
 /* tabs (desktop + mobile share handler) */
@@ -994,7 +1075,7 @@ document.querySelectorAll('.tabs button,#mtabs button').forEach(b=>b.onclick=()=
 const XG=1000; // a wire = 1 mΩ
 function flowSolve(){
   if(!state.power) return null;
-  const brk=state.brk||NOBRK, fixed={}, baseR=[], diodes=[], npns=[], links=[], nodes=new Set();
+  const brk=state.brk||NOBRK, fixed={}, baseR=[], diodes=[], npns=[], links=[], nodes=new Set(), ext={R:[],CS:[]};
   const add=k=>{ nodes.add(k); return k; };
   for(let v=1;v<=6;v++){ fixed[add('pw:V'+v)]=1.5*v; } fixed[add('pw:N')]=0;
   state.wires.forEach((w,i)=>{ if(brk.rmW.has(i)||!pts[w.a]||!pts[w.b]) return; const e={a:add(pts[w.a].node),b:add(pts[w.b].node),g:XG}; baseR.push(e); links.push({kind:'wire',i,e}); });
@@ -1006,16 +1087,21 @@ function flowSolve(){
     if(brk.shP.has(p.id)){ const A=p.type==='npn'?p.c:p.a, B=p.type==='npn'?p.e:p.b; const e={a:add(pts[A].node),b:add(pts[B].node),g:XG}; baseR.push(e); links.push({kind:'short',p,e}); return; }
     if(p.type==='res'){ const e={a:add(pts[p.a].node),b:add(pts[p.b].node),g:1/p.value}; baseR.push(e); links.push({kind:'res',p,e}); }
     else if(p.type==='led'||p.type==='diode'){ const d={a:add(pts[p.a].node),b:add(pts[p.b].node),vth:p.type==='led'?1.8:0.6,ron:p.type==='led'?28:8}; diodes.push(d); links.push({kind:'dio',p,d}); }
-    else if(p.type==='npn'){ const t={b:add(pts[p.b].node),c:add(pts[p.c].node),e:add(pts[p.e].node),von:0.6,ron:25,init:npnStart(p.id)}; npns.push(t); links.push({kind:'npn',p,t}); }
+    else if(p.type==='npn'){ const t={b:add(pts[p.b].node),c:add(pts[p.c].node),e:add(pts[p.e].node),von:0.6,ron:25,init:npnStart(p.id)}; npns.push(t); links.push({kind:'npn',p,t}); links.push({kind:'base',p,bt:t}); }
+    else if(p.type==='cap'){ const dt=(state.lastSol&&state.lastSol.dt)||DT_INSTANT, g=p.value*1e-6/dt, v0=(state.capPrev&&state.capPrev[p.id])||0, c={a:add(pts[p.a].node),b:add(pts[p.b].node),g,v0};
+      ext.R.push({a:c.a,b:c.b,g}); ext.CS.push({node:c.a,amps:g*v0},{node:c.b,amps:-g*v0}); links.push({kind:'cap',p,c}); }
   });
+  baseR.push({a:add('spn:64'),b:add('spn:68'),g:1/8});
   baseR.push({a:add('spn:19'),b:add('spn:20'),g:1/(1000*Math.pow(10,3*(1-state.ctl.light)))});
   const pv=state.ctl.pot; baseR.push({a:add('spn:58'),b:add('spn:59'),g:1/Math.max(50,pv*50000)}); baseR.push({a:add('spn:59'),b:add('spn:60'),g:1/Math.max(50,(1-pv)*50000)});
-  const res=solveCircuit([...nodes],fixed,baseR,diodes,npns);
+  const res=solveCircuit([...nodes],fixed,baseR,diodes,npns,ext);
   const V=k=>res.v[k]??0;
   links.forEach(l=>{
     if(l.e) l.I=(V(l.e.a)-V(l.e.b))*l.e.g;
     else if(l.d){ const i=diodes.indexOf(l.d); l.I=res.diodeStates[i]?Math.max(0,(V(l.d.a)-V(l.d.b)-l.d.vth)/l.d.ron):0; }
     else if(l.t){ const i=npns.indexOf(l.t); l.I=res.npnStates[i]?(V(l.t.c)-V(l.t.e))/l.t.ron:0; }
+    else if(l.bt){ const i=npns.indexOf(l.bt); l.I=res.beStates[i]?(V(l.bt.b)-V(l.bt.e)-BE_VTH)/BE_RON:0; }
+    else if(l.c){ l.I=l.c.g*((V(l.c.a)-V(l.c.b))-l.c.v0); }
   });
   return {res,links,V};
 }
@@ -1043,7 +1129,7 @@ function drawXray(){
     gFlow.appendChild(base); };
   fs.links.forEach(l=>{
     if(l.kind==='wire'){ const w=state.wires[l.i], A=pts[w.a], Bp=pts[w.b]; flow(`M${A.x} ${A.y} Q ${(A.x+Bp.x)/2} ${(A.y+Bp.y)/2-18} ${Bp.x} ${Bp.y}`,l.I); }
-    else { const p=l.p, a=p.type==='npn'?p.c:p.a, b=p.type==='npn'?p.e:p.b, A=pts[a], Bp=pts[b]; if(A&&Bp) flow(`M${A.x} ${A.y} L ${Bp.x} ${Bp.y}`,l.I); }
+    else { const p=l.p, a=l.kind==='base'?p.b:p.type==='npn'?p.c:p.a, b=p.type==='npn'?p.e:p.b, A=pts[a], Bp=pts[b]; if(A&&Bp) flow(`M${A.x} ${A.y} L ${Bp.x} ${Bp.y}`,l.I); }
   });
 }
 
@@ -1213,7 +1299,7 @@ function hole(id){
 }
 function ledList(){ return state.parts.filter(p=>p.type==='led'); }
 function ledName(p){ const P=PROJECTS[state.project]; const i=ledList().indexOf(p); return (P&&P.ledNames&&P.ledNames[i]) || ('LED '+(i+1)); }
-function partLabel(p){ if(p.type==='res') return (p.value>=1000?fmtR(p.value)+'Ω':fmtR(p.value))+' resistor'; if(p.type==='led') return ledName(p); if(p.type==='diode') return 'diode'; if(p.type==='npn') return 'transistor'; return p.type; }
+function partLabel(p){ if(p.type==='res') return (p.value>=1000?fmtR(p.value)+'Ω':fmtR(p.value))+' resistor'; if(p.type==='led') return ledName(p); if(p.type==='diode') return 'diode'; if(p.type==='npn') return 'transistor '+p.id.toUpperCase(); if(p.type==='cap') return (p.value>=1?p.value+' µF':Math.round(p.value*1000)+' nF')+' capacitor'; return p.type; }
 function partLoc(p){ return p.type==='npn' ? 'B '+hole(p.b)+' · C '+hole(p.c)+' · E '+hole(p.e) : hole(p.a)+' → '+hole(p.b); }
 function ledmA(p,sol){ if(!sol) return 0; const d=sol.diodes.find(x=>x._led===p); if(!d) return 0; const va=sol.res.v[d.a]??0, vc=sol.res.v[d.b]??0; return Math.max(0,(va-vc-d.vth)/d.ron)*1000; }
 function updateReadings(){
@@ -1224,6 +1310,8 @@ function updateReadings(){
   ledList().forEach(p=>{ const mA=ledmA(p,sol); const st=state.brk.rmP.has(p.id)?'removed':mA>30?'<span class="hot">too much — would burn out</span>':mA>8?'bright':mA>1?'dim':'off';
     rows+=`<tr><td>${ledName(p)}</td><td class="num">${mA.toFixed(1)} mA</td><td>${st}</td></tr>`; });
   if(P.meter){ const v=sol.res.v[sol.find('spn:59')]??0; rows+=`<tr><td>Meter (knob wiper)</td><td class="num">${v.toFixed(2)} V</td><td>${Math.round(v/9*100)}% of 9 V</td></tr>`; }
+  if(P.timed==='live'){ const f=simRate(); rows+=`<tr><td>Blink rate (counted)</td><td class="num">${f?f.toFixed(2)+' Hz':'…'}</td><td>${f?'one blink every '+(1/f).toFixed(2)+' s':'counting'}</td></tr>`; }
+  if(P.timed==='tone'){ const t=state.tone; rows+=`<tr><td>Pitch (measured)</td><td class="num">${t&&t.f?Math.round(t.f)+' Hz':'—'}</td><td>${!t?'measuring':t.ok?'speaker sounding':t.f?'oscillating, but the speaker is out of the loop':'<span class="hot">not oscillating</span>'}</td></tr>`; }
   box.innerHTML=rows?`<table class="trtab"><tr><th>Reading</th><th>Value</th><th></th></tr>${rows}</table>`:'';
 }
 const BREAK_WHY={
@@ -1273,6 +1361,7 @@ function symptomOf(kind,id){ // does this fault visibly change the circuit right
 }
 function mysteryCandidates(){ const c=[]; state.parts.forEach(p=>{ c.push(['rmP',p.id]); c.push(['shP',p.id]); }); state.wires.forEach((w,i)=>c.push(['rmW',i])); return c; }
 function startMystery(forced){
+  const TP=PROJECTS[state.project]; if(TP&&TP.timed&&!forced){ state.mysteryMsg='This circuit never sits still, so a hidden fault can’t be judged from one moment. Use break-it on it instead and watch what the blinking or the tone does; mystery faults work on the steady circuits.'; renderProjCtl(true); return; }
   if(!state.power){ state.mysteryMsg='Switch POWER on first — a fault only shows when current is trying to flow.'; renderProjCtl(true); return; }
   clearBrk();
   const pool=forced?[forced]:mysteryCandidates().filter(([k,id])=>symptomOf(k,id));
@@ -1324,6 +1413,20 @@ function mysteryPanel(body){
 }
 
 function setBreak(kind,id){ state.mystery=null; clearBrk(); state.brk[kind].add(id); state.lastBreak={kind,id}; recompute(); drawOverlay(); renderProjCtl(true); }
+function timedDiagnosis(P){
+  const lb=state.lastBreak; if(!lb) return '';
+  if(!state.power) return '<p class="trnote">Switch <b>POWER</b> on. A fault only shows itself when current is trying to flow.</p>';
+  const p=lb.kind==='rmW'?null:state.parts.find(x=>x.id===lb.id), sh=lb.kind==='shP';
+  const watch=P.timed==='tone'?'Listen, and read the pitch line above.':'Watch the two LEDs and the blink-rate line above for a few seconds.';
+  let why;
+  if(!p) why='A cut wire is an open. If it fed a transistor’s collector, a timing capacitor or a base resistor, that side can no longer take its turn and the rhythm stops.';
+  else if(p.type==='cap') why=sh?'A shorted capacitor is a plain wire: it can no longer store charge, so it can’t hold the other transistor’s base down for a while. The see-saw stops.'
+    :'With a timing capacitor gone, one transistor has nothing to kick its partner’s base below zero. The see-saw jams with one side on. Timing needs <b>two</b> stores of charge that take turns.';
+  else if(p.type==='npn') why=sh?'A transistor shorted collector-to-emitter is stuck on. Its side never lets go, so the other side can never take its turn.':'With one transistor gone, there is nothing to switch that side, so the rhythm stops.';
+  else if(p.type==='res'&&/^bb:[NP]/.test(p.b)) why='That resistor charges a timing capacitor. '+(sh?'Shorted, it ties the base straight to the supply, so that transistor is held on and the circuit stops switching.':'Removed, the capacitor on that side can’t recharge, so its transistor never turns back on.');
+  else why=sh?'Shorting a load part lets more current flow, but the timing parts are untouched, so the rhythm may carry on.':'Removing a load part opens that side’s collector, so it can no longer swing its partner’s base.';
+  return `<div class="diag"><div class="dh">Changes over time</div><p>${why}</p><p class="trnote">${watch} This circuit never sits still, so it is judged by what it does over a few seconds rather than by one set of numbers.</p></div>`;
+}
 function breakPanel(keepOpen){
   const P=PROJECTS[state.project]; const d=document.createElement('details'); d.className='breakit';
   if(keepOpen||state.lastBreak) d.open=true;
@@ -1342,14 +1445,14 @@ function breakPanel(keepOpen){
   state.parts.forEach(p=>row(partLabel(p),partLoc(p),[['Remove','rmP',p.id],['Short','shP',p.id]]));
   state.wires.forEach((w,i)=>row('Wire',hole(w.a)+' → '+hole(w.b),[['Cut','rmW',i]]));
   body.appendChild(list);
-  const out=document.createElement('div'); out.innerHTML=diagnosis(); body.appendChild(out);
+  const out=document.createElement('div'); out.innerHTML=P.timed?timedDiagnosis(P):diagnosis(); body.appendChild(out);
   if(state.lastBreak){ const fix=document.createElement('button'); fix.className='brk-fix'; fix.textContent='Repair everything'; fix.onclick=()=>{ clearBrk(); recompute(); drawOverlay(); renderProjCtl(true); }; body.appendChild(fix); }
   d.appendChild(body); return d;
 }
 function choiceRows(box,P){
   (P.choices||[]).forEach(c=>{ const r=ctlRow(c.label); const seg=document.createElement('div'); seg.className='seg wrap';
     c.opts.forEach(([v,t])=>{ const b=document.createElement('button'); b.textContent=t; b.className=String(state.ctl[c.key])===String(v)?'on':'';
-      b.onclick=()=>{ state.ctl[c.key]=v; clearBrk(); state.npnMemo={}; state.mystery=null; state.wires=[]; state.parts=[]; P.build(); drawOverlay(); renderProjCtl(); };
+      b.onclick=()=>{ state.ctl[c.key]=v; clearBrk(); state.npnMemo={}; state.capV={}; state.sim={t:0,edges:[]}; state.tone=null; state.mystery=null; state.wires=[]; state.parts=[]; P.build(); drawOverlay(); renderProjCtl(); };
       seg.appendChild(b); }); r.appendChild(seg); box.appendChild(r); });
 }
 
@@ -1417,7 +1520,7 @@ function renderProjList(){
 }
 function loadProject(num){
   const P=PROJECTS[num]; if(!P) return;
-  state.wires=[]; state.parts=[]; state.project=num; state.armed=null; state.pending=null; clearArmedSel(); clearBrk(); state.npnMemo={}; state.mystery=null; state.mysteryMsg='';
+  state.wires=[]; state.parts=[]; state.project=num; state.armed=null; state.pending=null; clearArmedSel(); clearBrk(); state.npnMemo={}; state.capV={}; state.sim={t:0,edges:[]}; state.tone=null; state.mystery=null; state.mysteryMsg='';
   state.ctl={sw:'down',s1:false,s2:false,pot:0.5,light:0.7,tuning:0.5};
   (P.choices||[]).forEach(c=>{ state.ctl[c.key]=c.def; }); Object.assign(state.ctl,P.ctlDefaults||{});
   stopDynamic();
@@ -1495,7 +1598,7 @@ function renderMecha(){ const l=document.getElementById('mechaList'); l.innerHTM
    ===================================================================== */
 buildPoints(); renderPanel(); drawOverlay();
 buildWireChips(); fillResVals(); drawBinGlyphs(); renderProjList(); renderMecha(); renderLineage();
-document.getElementById('buildBadge').textContent='build 2026.11.08-6';
+document.getElementById('buildBadge').textContent='build 2026.11.09-1';
 selectTab('build');
 recompute();
 /* ---- handoff from the Learn app: electronics-trainer.html#p=19&from=learn ---- */

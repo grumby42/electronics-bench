@@ -11,7 +11,7 @@ Open [`index.html`](index.html) for a start page. No install, no network, no bui
 
 ## What's real and what's simplified
 
-The trainer solves circuits with nodal analysis (the method professional circuit simulators are built on), and the course's simulations use real equations. Both are still **teaching models**: transistors are ideal switches, diodes are piecewise linear, and some projects run as behaviour models. Every simplification is listed in **[MODEL-LIMITS.md](MODEL-LIMITS.md)**. Please read it before reporting a "bug" in the physics, and please report anything that isn't on it.
+The trainer solves circuits with nodal analysis (the method professional circuit simulators are built on), and the course's simulations use real equations. Both are still **teaching models**: transistors are ideal switches, diodes are piecewise linear, and capacitors are ideal. Every live kit project is wired on the board and solved, including the timed ones. Every simplification is listed in **[MODEL-LIMITS.md](MODEL-LIMITS.md)**. Please read it before reporting a "bug" in the physics, and please report anything that isn't on it.
 
 ## Tests
 
@@ -20,7 +20,7 @@ npm install
 npm test
 ```
 
-Eleven suites, about 130 checks, run in jsdom. They test behaviour against theory, not just that the page renders. For example: the capacitor reaches 63% at exactly one time constant, the blinker's measured period matches 0.69 RC, every logic gate's truth table emerges from the pipe-network physics, the X-ray view's wire currents obey Kirchhoff's current law, and a hidden open resistor reads 9 V before it and 0 V after it.
+Twelve suites, about 150 checks, run in jsdom. They test behaviour against theory, not just that the page renders. For example: the capacitor reaches 63% at exactly one time constant, the blinker's measured period matches 0.69 RC, every logic gate's truth table emerges from the pipe-network physics, the X-ray view's wire currents obey Kirchhoff's current law, a hidden open resistor reads 9 V before it and 0 V after it; and on the trainer, each gate's truth table comes out of its transistor circuit and the blinker's rate matches its resistors and capacitors.
 
 ## Build IDs
 

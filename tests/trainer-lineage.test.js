@@ -43,7 +43,7 @@ setTimeout(()=>{ try{
  run('L3',{line:0,s1:true}); g.setBreak('rmW',0); ok('Break: cut a wire → open', /Open circuit/.test(txt()) && mA()<0.1);
  D.querySelector('#projCtl .brk-fix').click(); ok('Repair restores the circuit', mA()>15 && !S.lastBreak);
  run('L1',{tap:'V6'}); D.getElementById('powerBtn').click(); g.setBreak('rmP',S.parts[0].id); ok('Break with power off explains why nothing shows', /Switch POWER on/.test(D.querySelector('#projCtl .breakit').textContent)); D.getElementById('powerBtn').click();
- run(29); ok('behaviour-model projects say honestly that break-it needs wiring', /behaviour model/.test(D.querySelector('#projCtl .breakit').textContent));
+ run(29); ok('timed projects list their capacitors in break-it', /10 µF capacitor/.test(D.querySelector('#projCtl .breakit').textContent));
  // ---- flip-flop memory
  const ff=()=>[mA(0)>3?1:0, mA(1)>3?1:0].join('');
  g.loadProject('L10'); g.recompute(); const s0=ff();
