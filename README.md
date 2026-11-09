@@ -4,7 +4,7 @@ Two offline, single-file web apps for learning electronics from zero, built arou
 
 | App | What it is |
 |---|---|
-| [`electronics-basics.html`](electronics-basics.html) | **The course.** Notation first, then what electricity is, every core component with a live simulation, series and parallel, Kirchhoff's laws, four projects, logic gates as flowing liquid, counters and registers, a computing part (from clay tokens and Heron's rope-programmed cart to punched cards and the bootstrap ladder), the history of how each part came to be, recall checks, a glossary and a NEETS coverage tracker. |
+| [`electronics-basics.html`](electronics-basics.html) | **The course.** Notation first, then what electricity is, every core component with a live simulation, series and parallel, Kirchhoff's laws, four projects, logic gates as flowing liquid, counters and registers, schematic reading and printed circuit boards (with an exploded layer view), a computing part (from clay tokens and Heron's rope-programmed cart to punched cards and the bootstrap ladder), the history of how each part came to be, recall checks, a glossary and a NEETS coverage tracker. |
 | [`electronics-trainer.html`](electronics-trainer.html) | **The bench.** A functional recreation of the 500-in-1 lab panel: breadboard, battery taps, springs and modules, with a real DC circuit solver. Includes a **Lineage** track (from Volta's battery to the NOR gate that flew Apollo and the flip-flop that remembers), **break-it mode** (remove or short any part and get a diagnosis, or solve a hidden **mystery fault** with a voltage probe), and an **X-ray view** of the hidden strips and the current in every wire. |
 
 Open [`index.html`](index.html) for a start page. No install, no network, no build step: download the files and open them in a browser. Keep both apps in the same folder so the course's "Build it for real" buttons can open projects on the bench.
@@ -20,7 +20,7 @@ npm install
 npm test
 ```
 
-Thirteen suites, about 165 checks, run in jsdom. They test behaviour against theory, not just that the page renders. For example: the capacitor reaches 63% at exactly one time constant, the blinker's measured period matches 0.69 RC, every logic gate's truth table emerges from the pipe-network physics, the X-ray view's wire currents obey Kirchhoff's current law, a hidden open resistor reads 9 V before it and 0 V after it; and on the trainer, each gate's truth table comes out of its transistor circuit and the blinker's rate matches its resistors and capacitors.
+Fourteen suites, about 180 checks, run in jsdom. They test behaviour against theory, not just that the page renders. For example: the capacitor reaches 63% at exactly one time constant, the blinker's measured period matches 0.69 RC, every logic gate's truth table emerges from the pipe-network physics, the X-ray view's wire currents obey Kirchhoff's current law, a hidden open resistor reads 9 V before it and 0 V after it; and on the trainer, each gate's truth table comes out of its transistor circuit and the blinker's rate matches its resistors and capacitors.
 
 ## Build IDs
 

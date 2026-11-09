@@ -38,6 +38,7 @@ If you find a problem that isn't on this list, please open an issue. That is exa
 - **Jacquard loom** shows one hook per column and one card per row of cloth, with a plain weave. Real Jacquard heads have hundreds of hooks and more complex weave structures.
 - **Bootstrap ladder** machine codes are illustrative; each early computer had its own instruction set. The EDSAC letter codes shown are real in form.
 - **Counter lesson** works at the logic level: each flip-flop is an ideal toggle, and the ripple between stages is slowed to about 0.1 s per stage so you can see it (real stages take nanoseconds). The trainer's L10 flip-flop shows one bit built from real transistors.
+- **Schematic and PCB lessons** use pre-solved voltages for one circuit and each fault, not a live solver. The transistor's collector–emitter drop is fixed at 0.2 V and the LED at 2.0 V. The "7.4 V" read on an open LED is an estimate: with no real current, a meter's own tiny current sets what it shows. The board is drawn about three times real size, with only two copper layers.
 - **Recall questions** test the app's own lessons, not every nuance of the field.
 
 ## History

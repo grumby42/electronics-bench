@@ -4,7 +4,7 @@
      Companion to the 500-in-1 trainer. Walks the foundations, every core
      component (live micro-sims), then 4 functionally distinct projects,
      then how they combine. Pedagogy sequenced after the Navy NEETS series.
-     build 2026.11.09-2   ·   shipped 2026-11-09T05:05:46Z (UTC)
+     build 2026.11.09-3   ·   shipped 2026-11-09T05:34:47Z (UTC)
      single-file, offline, no external deps
      ==================================================================== -->
 <html lang="en">
@@ -224,6 +224,9 @@
   .ktab tr.sum td.num{color:var(--copper)}
   .handoff .hl{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 6px}
   .ctrlrow{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0}
+  .pcbpair{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start; width:100%}
+  .pcbpair svg{width:100%; height:auto; display:block; background:var(--bg2); border-radius:8px}
+  @media (max-width:760px){ .pcbpair{grid-template-columns:1fr} }
   .ctrl select{width:100%; min-height:40px; background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:inherit}
   .tdia{border:1px solid var(--line); border-radius:12px; background:var(--card); padding:8px; margin:12px 0; max-width:66ch}
   .tdia svg{width:100%; height:auto; display:block}
@@ -313,7 +316,7 @@
 <header>
   <button class="menu-btn" id="menuBtn" aria-label="Lessons">☰</button>
   <div class="brand">EL500 · <b>Learn</b></div>
-  <span class="badge" id="badge">build 2026.11.09-2</span>
+  <span class="badge" id="badge">build 2026.11.09-3</span>
   <span class="grow"></span>
   <button class="glossbtn" id="glossBtn" type="button" aria-haspopup="dialog">Glossary</button>
   <label class="rm"><input type="checkbox" id="reduceMotion"> Reduce motion</label>
@@ -1806,8 +1809,192 @@ function frame(rows){ // rows: [[label, html]]
 }
 
 /* ---- Recall check: Components ---- */
+/* ---- Components: schematics & printed circuit boards (one circuit, two drawings) ---- */
+const PCBK=(()=>{
+  // The circuit: a switch turns a transistor on, the transistor lights an LED.
+  const NETS={VCC:['VCC (+9 V)','B1 +, SW1 pin 1, R2 pin 1'],S:['Switch output','SW1 pin 2, R1 pin 1'],BASE:['Base','R1 pin 2, the via, Q1 base'],
+    C1:['LED anode','R2 pin 2, D1 anode'],COL:['Collector','D1 cathode, Q1 collector'],GND:['GND (0 V)','B1 −, Q1 emitter']};
+  const PADS={B1p:[35,50,'VCC','B1 +'],B1n:[35,160,'GND','B1 −'],SWa:[85,50,'VCC','SW1 pin 1'],SWb:[135,50,'S','SW1 pin 2'],R1a:[135,140,'S','R1 pin 1'],R1b:[175,140,'BASE','R1 pin 2'],
+    QE:[205,100,'GND','Q1 emitter'],QB:[225,100,'BASE','Q1 base'],QC:[245,100,'COL','Q1 collector'],R2a:[290,35,'VCC','R2 pin 1'],R2b:[290,75,'C1','R2 pin 2'],DA:[290,95,'C1','D1 anode'],DK:[290,130,'COL','D1 cathode'],VIA:[188,140,'BASE','via']};
+  // copper traces: [net, layer, points, current-role]
+  const TR=[['VCC','bot',[[35,50],[85,50]],'b'],['VCC','bot',[[35,50],[35,20],[290,20],[290,35]],'c'],['S','bot',[[135,50],[135,140]],'b'],
+    ['BASE','bot',[[175,140],[188,140]],'b'],['BASE','top',[[188,140],[225,140],[225,100]],'b'],['C1','bot',[[290,75],[290,95]],'c'],
+    ['COL','bot',[[290,130],[265,130]],'c',1],['COL','bot',[[265,130],[245,130],[245,100]],'c',2],['GND','bot',[[205,100],[205,175],[35,175],[35,160]],'e']];
+  // schematic wires: [net, points]
+  const SW=[['VCC',[[30,95],[30,30],[280,30],[280,42]]],['VCC',[[70,30],[70,58]]],['S',[[70,92],[70,165],[92,165]]],['BASE',[[148,165],[214,165]]],
+    ['C1',[[280,86],[280,96]]],['COL',[[280,118],[280,132],[244,132],[244,147]]],['GND',[[244,183],[244,196]]],['GND',[[30,127],[30,196]]]];
+  function volts(sw,fault){ // pad voltages, LED current (mA), base current (mA), and which LED end the meter sees
+    const v={VCC:9,GND:0}; let led=0, ib=0, lit=0;
+    if(fault==='bridge'){ ib=sw?(9-0.72)/10:0; led=(9-2-0.72)/0.47; Object.assign(v,{S:sw?9:0.72,BASE:0.72,COL:0.72,C1:2.72}); }
+    else if(!sw){ Object.assign(v,{S:0,BASE:0,COL:7.4,C1:9}); }
+    else if(fault==='crack'){ ib=0.83; Object.assign(v,{S:9,BASE:0.75,C1:9,COL:7.4,COLq:0.02}); }
+    else if(fault==='cold'){ ib=0.83; led=(9-0.2-1.75)/10.47; Object.assign(v,{S:9,BASE:0.75,COL:0.2,C1:9-led*0.47}); }
+    else { ib=0.83; led=(9-0.2-2)/0.47; Object.assign(v,{S:9,BASE:0.75,COL:0.2,C1:2.2}); }
+    const pad=k=>{ const n=PADS[k][2]; if(k==='QC'&&v.COLq!=null) return v.COLq; return v[n]; };
+    return {v,led,ib,pad};
+  }
+  return {NETS,PADS,TR,SW,volts};
+})();
+function pcbFlow(layer,pts,mA,col,list){ // a moving, glowing stream along a path; speed and width follow current
+  if(mA<0.05) return; const d='M'+pts.map(p=>p.join(' ')).join(' L ');
+  layer.appendChild(S('path',{d,fill:'none',stroke:col,'stroke-width':Math.min(7,2+mA/3),opacity:.22,'stroke-linecap':'round'}));
+  const f=S('path',{d,fill:'none',stroke:col,'stroke-width':Math.min(3.5,1+mA/8),'stroke-dasharray':'3 9','stroke-linecap':'round',opacity:.95}); f.__v=8+Math.min(60,mA*3); f.__o=0; layer.appendChild(f); list.push(f);
+}
+function drawSchematic(svg,st){
+  const g=S('g',{}); svg.innerHTML=''; svg.appendChild(g); const K=PCBK, hi=st.hi, ink='var(--ink)';
+  const lit=st.res.led>3?1:st.res.led>0.3?0.35:0;
+  K.SW.forEach(([n,p])=>{ const on=hi===n; const pl=S('polyline',{points:p.map(q=>q.join(',')).join(' '),fill:'none',stroke:on?'var(--copper)':ink,'stroke-width':on?3.5:1.8,'stroke-linejoin':'round',style:'cursor:pointer'});
+    pl.addEventListener('click',()=>st.pick(n)); g.appendChild(pl); const hit=S('polyline',{points:p.map(q=>q.join(',')).join(' '),fill:'none',stroke:'transparent','stroke-width':14,style:'cursor:pointer'}); hit.addEventListener('click',()=>st.pick(n)); g.appendChild(hit); });
+  [[70,30]].forEach(([x,y])=>g.appendChild(S('circle',{cx:x,cy:y,r:3.5,fill:hi==='VCC'?'var(--copper)':ink})));
+  const T=(x,y,t,a)=>{ const e=S('text',Object.assign({x,y,fill:'var(--muted)','font-size':'9'},a||{})); e.textContent=t; g.appendChild(e); };
+  // battery
+  g.appendChild(S('line',{x1:16,y1:97,x2:44,y2:97,stroke:ink,'stroke-width':2})); g.appendChild(S('line',{x1:22,y1:104,x2:38,y2:104,stroke:ink,'stroke-width':4}));
+  g.appendChild(S('line',{x1:16,y1:113,x2:44,y2:113,stroke:ink,'stroke-width':2})); g.appendChild(S('line',{x1:22,y1:120,x2:38,y2:120,stroke:ink,'stroke-width':4}));
+  g.appendChild(S('line',{x1:30,y1:120,x2:30,y2:127,stroke:ink,'stroke-width':1.8})); T(48,104,'B1'); T(48,115,'9 V'); T(12,93,'+');
+  // switch (tap to flip)
+  const swg=S('g',{style:'cursor:pointer'}); swg.appendChild(S('circle',{cx:70,cy:60,r:2.5,fill:ink})); swg.appendChild(S('circle',{cx:70,cy:90,r:2.5,fill:ink}));
+  swg.appendChild(S('line',{x1:70,y1:90,x2:st.sw?70:86,y2:st.sw?60:64,stroke:'var(--copper)','stroke-width':2.5})); swg.appendChild(S('rect',{x:52,y:52,width:40,height:46,fill:'transparent'}));
+  swg.addEventListener('click',st.toggle); g.appendChild(swg); T(92,80,'SW1'); T(92,91,st.sw?'closed':'open',{fill:'var(--copper)'});
+  // R1 zig-zag horizontal, R2 vertical
+  const zz=(x0,y0,horiz,len)=>{ let p=[]; for(let i=0;i<=8;i++){ const t=i/8*len, o=i===0||i===8?0:(i%2?6:-6); p.push(horiz?[x0+t,y0+o]:[x0+o,y0+t]); } return p.map(q=>q.join(',')).join(' '); };
+  g.appendChild(S('polyline',{points:zz(92,165,true,56),fill:'none',stroke:ink,'stroke-width':1.8})); T(108,155,'R1 10k');
+  g.appendChild(S('polyline',{points:zz(280,42,false,44),fill:'none',stroke:ink,'stroke-width':1.8})); T(290,66,'R2 470');
+  // LED pointing down
+  g.appendChild(S('polygon',{points:'270,96 290,96 280,114',fill:lit?`rgba(255,90,74,${lit})`:'none',stroke:ink,'stroke-width':1.8})); g.appendChild(S('line',{x1:270,y1:114,x2:290,y2:114,stroke:ink,'stroke-width':1.8}));
+  g.appendChild(S('line',{x1:280,y1:114,x2:280,y2:118,stroke:ink,'stroke-width':1.8}));
+  [[294,100],[297,107]].forEach(([x,y])=>g.appendChild(S('path',{d:`M${x} ${y} l7 -5 m-3 0 l3 0 l0 3`,fill:'none',stroke:lit?'#ff5a4a':ink,'stroke-width':1.2}))); T(300,122,'D1');
+  if(lit) g.appendChild(S('circle',{cx:280,cy:105,r:16,fill:'#ff5a4a',opacity:.18*lit+.05}));
+  // NPN
+  g.appendChild(S('circle',{cx:236,cy:165,r:17,fill:'none',stroke:ink,'stroke-width':1.4})); g.appendChild(S('line',{x1:214,y1:165,x2:228,y2:165,stroke:ink,'stroke-width':1.8}));
+  g.appendChild(S('line',{x1:228,y1:154,x2:228,y2:176,stroke:ink,'stroke-width':2.6})); g.appendChild(S('line',{x1:228,y1:159,x2:244,y2:147,stroke:ink,'stroke-width':1.8})); g.appendChild(S('line',{x1:228,y1:171,x2:244,y2:183,stroke:ink,'stroke-width':1.8}));
+  g.appendChild(S('path',{d:'M244 183 l-8 -1 l4 -5 z',fill:ink})); T(258,170,'Q1'); T(204,158,'B',{'font-size':'8'}); T(248,146,'C',{'font-size':'8'}); T(248,190,'E',{'font-size':'8'});
+  // grounds
+  [[30,196],[244,196]].forEach(([x,y])=>{ [[10,0],[6,4],[2,8]].forEach(([w,dy])=>g.appendChild(S('line',{x1:x-w,y1:y+dy,x2:x+w,y2:y+dy,stroke:hi==='GND'?'var(--copper)':ink,'stroke-width':1.8}))); });
+  if(st.flow){ const r=st.res, L=st.flowEls, fault=st.mystery||st.fault; const c=r.led, b=r.ib, F=(p,m)=>pcbFlow(g,p,m,'#5ad2ff',L);
+    if(b>0.05){ F([[30,95],[30,30],[70,30],[70,58]],b); F([[70,92],[70,165],[92,165]],b); F([[148,165],[214,165]],b); }
+    if(c>0.05){ F([[30,30],[280,30],[280,42]],c); F([[280,86],[280,96]],c); if(fault!=='crack') F([[280,118],[280,132],[244,132],[244,147]],c); }
+    const gnd=b+(fault==='crack'?0:c); if(gnd>0.05){ F([[244,183],[244,196]],gnd); F([[30,196],[30,127]],gnd); } }
+}
+function drawPCB(svg,st){
+  svg.innerHTML=''; const K=PCBK, X=st.exploded; svg.setAttribute('viewBox',X?'0 0 340 310':'0 0 340 200');
+  const root=S('g',{}); svg.appendChild(root); const show=st.layers, lit=st.res.led>3?1:st.res.led>0.3?0.35:0;
+  const ISO='matrix(0.6,0.22,-0.45,0.3,0,0)', OFF=[0,40,80,120,160], LBL=['solder mask + silkscreen (top)','top copper','fibreglass core (FR-4)','bottom copper','solder mask (bottom)'];
+  const layer=(k)=>{ const g=S('g',{transform:X?`translate(110,${8+OFF[k]}) ${ISO}`:''}); root.appendChild(g); return g; };
+  const order=X?[4,3,2,1,0]:[2,3,1,0]; const G={};
+  order.forEach(k=>{ G[k]=layer(k); });
+  const board=(g,fill,op)=>g.appendChild(S('rect',{x:10,y:8,width:320,height:184,rx:6,fill,opacity:op,stroke:'rgba(255,255,255,.15)'}));
+  // core
+  board(G[2],X?'#b9a46a':'#4d4528',X?0.55:1); Object.values(K.PADS).forEach(([x,y])=>G[2].appendChild(S('circle',{cx:x,cy:y,r:3.2,fill:'#20160c'})));
+  if(X) { board(G[4],'#1f6b3a',0.35); }
+  const trace=(g,t,dim)=>{ const [n,ly,p]=t, on=st.hi===n; const pl=S('polyline',{points:p.map(q=>q.join(',')).join(' '),fill:'none',stroke:on?'#ffd08a':X?'#ff9a4a':ly==='top'?'#e8944e':'#c7713a','stroke-width':(on?7:5)*(X?1.6:1),'stroke-linecap':'round','stroke-linejoin':'round',opacity:dim?0.6:1,style:'cursor:pointer'});
+    pl.addEventListener('click',()=>st.pick(n)); g.appendChild(pl); };
+  const crackAt=(g)=>{ if(st.fault==='crack'&&st.revealed){ g.appendChild(S('path',{d:'M262 124 l4 5 l-3 3 l5 5',fill:'none',stroke:'#ff6a5a','stroke-width':2})); } };
+  if(show.bot){ if(X) board(G[3],'rgba(0,0,0,0)',1); K.TR.filter(t=>t[1]==='bot').forEach(t=>trace(G[3],t,!X&&show.mask)); crackAt(G[3]); }
+  if(show.top){ if(X) board(G[1],'rgba(0,0,0,0)',1); K.TR.filter(t=>t[1]==='top').forEach(t=>trace(G[1],t,false)); }
+  // pads (plated through-holes: copper on both sides)
+  const padG=X?G[1]:G[1]; Object.entries(K.PADS).forEach(([k,[x,y,n]])=>{ const on=st.hi===n, via=k==='VIA', g=S('g',{style:'cursor:pointer'});
+    g.appendChild(S('circle',{cx:x,cy:y,r:via?4:7,fill:on?'#ffb35c':'#e0a060',stroke:'#7a4a1c','stroke-width':1})); g.appendChild(S('circle',{cx:x,cy:y,r:via?1.6:2.6,fill:'#14100b'}));
+    const pr=st.probes.find(p=>p.k===k); if(pr){ g.appendChild(S('circle',{cx:x,cy:y,r:10,fill:'none',stroke:'#5ad2ff','stroke-width':1.5})); }
+    g.addEventListener('click',()=>st.padTap(k)); padG.appendChild(g);
+    if(X&&show.bot) G[3].appendChild(S('circle',{cx:x,cy:y,r:via?4:7,fill:'#c7713a',stroke:'#7a4a1c','stroke-width':1})); });
+  if(st.fault==='bridge'&&st.revealed) G[1].appendChild(S('rect',{x:225,y:95,width:20,height:10,rx:4,fill:'#c9c9c9',opacity:.9}));
+  if(st.fault==='cold'&&st.revealed) G[1].appendChild(S('circle',{cx:290,cy:95,r:9,fill:'none',stroke:'#ff6a5a','stroke-width':2,'stroke-dasharray':'2 2'}));
+  // mask + silkscreen
+  if(show.mask){ const m=G[0]; const hole=Object.values(K.PADS).map(([x,y])=>`M${x-8} ${y} a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0`).join(' ');
+    m.appendChild(S('path',{d:`M10 8 h320 v184 h-320 z ${hole}`,fill:'#1f8a4c',opacity:X?0.4:0.3,'fill-rule':'evenodd',style:'pointer-events:none'})); }
+  if(show.silk){ const s=G[0], W=(a)=>s.appendChild(S('rect',Object.assign({fill:'none',stroke:'#f2f2f2','stroke-width':1.2,style:'pointer-events:none'},a))), Tx=(x,y,t)=>{ const e=S('text',{x,y,fill:'#f2f2f2','font-size':'9',style:'pointer-events:none'}); e.textContent=t; s.appendChild(e); };
+    W({x:20,y:38,width:30,height:136,rx:3}); Tx(54,58,'B1 +'); Tx(54,166,'−'); W({x:74,y:40,width:72,height:20,rx:3}); Tx(98,34,'SW1');
+    W({x:143,y:133,width:24,height:14,rx:3}); Tx(140,128,'R1 10k'); W({x:283,y:43,width:14,height:24,rx:3}); Tx(300,58,'R2'); s.appendChild(S('path',{d:'M195 108 a25 20 0 0 1 60 0 z',fill:'none',stroke:'#f2f2f2','stroke-width':1.2,style:'pointer-events:none'}));
+    Tx(216,124,'Q1'); s.appendChild(S('circle',{cx:290,cy:112,r:14,fill:'none',stroke:'#f2f2f2','stroke-width':1.2,style:'pointer-events:none'})); Tx(300,152,'D1'); }
+  if(lit&&!X) root.appendChild(S('circle',{cx:290,cy:112,r:18,fill:'#ff5a4a',opacity:.25*lit+.1,style:'filter:blur(2px);pointer-events:none'}));
+  // barrels: in exploded view, plated holes are drawn as copper tubes joining the layers
+  if(X){ const P=(x,y,k)=>{ const a=0.6*x-0.45*y+110, b=0.22*x+0.3*y+8+OFF[k]; return [a,b]; };
+    Object.entries(K.PADS).forEach(([k,[x,y,n]])=>{ const t=P(x,y,0), bt=P(x,y,4); root.appendChild(S('line',{x1:t[0],y1:t[1],x2:bt[0],y2:bt[1],stroke:st.hi===n?'#ffb35c':'#b06a30','stroke-width':k==='VIA'?2:3,opacity:.85})); });
+    if(st.flow&&st.res.ib>0.05){ [['VIA',3,1],['QB',1,0]].forEach(([k,a,b])=>{ const [x,y]=K.PADS[k]; pcbFlow(root,[P(x,y,a),P(x,y,b)],st.res.ib*6,'#5ad2ff',st.flowEls); }); }
+    LBL.forEach((t,k)=>{ const e=S('text',{x:4,y:30+OFF[k]+60,fill:'var(--muted)','font-size':'8'}); e.textContent=t; root.appendChild(e); }); }
+  // current streams on copper
+  if(st.flow){ const r=st.res, FT=st.mystery||st.fault; K.TR.forEach(t=>{ const [n,ly,p,role,part]=t; if(!(ly==='bot'?show.bot:show.top)) return; let m=role==='b'?r.ib:role==='c'?r.led:r.ib+r.led;
+      if(FT==='crack'&&role!=='b') m=role==='e'?r.ib:0;
+      const g=X?(ly==='top'?G[1]:G[3]):root; pcbFlow(g,p,m,'#5ad2ff',st.flowEls); }); }
+  // probe tags
+  st.probes.forEach(pr=>{ const [x,y]=K.PADS[pr.k]; let px=x,py=y; if(X){ px=0.6*x-0.45*y+110; py=0.22*x+0.3*y+8+OFF[1]; }
+    const t=S('text',{x:px+8,y:py-8,fill:'#5ad2ff','font-size':'10','font-family':'var(--mono)',style:'paint-order:stroke;stroke:#0b0f14;stroke-width:3px;pointer-events:none'}); t.textContent=pr.v.toFixed(2)+'V'; root.appendChild(t); });
+}
+function pcbState(onChange){
+  const st={sw:true,fault:'none',hi:null,flow:true,exploded:false,revealed:false,probing:false,probes:[],mystery:null,layers:{top:true,bot:true,mask:true,silk:true},flowEls:[]};
+  st.res=PCBK.volts(st.sw,st.fault);
+  st.recalc=()=>{ st.res=PCBK.volts(st.sw,st.mystery||st.fault); st.probes.forEach(p=>p.v=st.res.pad(p.k)); onChange(); };
+  st.toggle=()=>{ st.sw=!st.sw; st.recalc(); };
+  st.pick=n=>{ st.hi=st.hi===n?null:n; onChange(); };
+  st.padTap=k=>{ if(st.probing){ st.probes=st.probes.filter(p=>p.k!==k).concat([{k,v:st.res.pad(k)}]).slice(-6); onChange(); } else st.pick(PCBK.PADS[k][2]); };
+  return st;
+}
+
+STEPS.push({part:P_COMP, nav:"Reading a schematic", title:"Reading a schematic: the circuit’s map",
+  sub:"A schematic shows what connects to what, and nothing else. Where parts sit, how long the wires are, what they look like: all left out on purpose. Learn six symbols and three rules and you can read most simple circuits.",
+  body(root){
+    root.appendChild(el('p',{class:'lead',html:"Every line is a perfect wire. Every part is a symbol. The circuit below is a <span class='key'>transistor switch</span>: closing SW1 lets a tiny current into Q1’s base, and Q1 then lets a much bigger current through the LED. Tap the switch to try it. Tap any wire to light up everything it connects to: that set of connected points is called a <span class='key'>net</span>."}));
+    const svg=S('svg',{viewBox:'0 0 330 210',role:'img','aria-label':'Schematic of a battery, switch, two resistors, a transistor and an LED'}); const panel=el('div',{});
+    const info=el('div',{class:'kwork',role:'status'});
+    let quizI=0; const QZ=[['Tap the wire that carries the switch’s output to R1.','S'],['Tap the net Q1’s emitter connects to.','GND'],['Tap the net that joins R2 to the LED.','C1'],['Tap the wire between the LED and the transistor.','COL']];
+    const qbox=el('div',{class:'kwork'});
+    const st=pcbState(render); st.flow=false;
+    st.pick=n=>{ st.hi=st.hi===n?null:n; if(quizI<QZ.length&&st.hi){ if(n===QZ[quizI][1]){ quizI++; qbox.dataset.last='right'; } else qbox.dataset.last='wrong'; } render(); };
+    function render(){ drawSchematic(svg,st);
+      info.innerHTML=st.hi?`<div class="kh">Net: ${PCBK.NETS[st.hi][0]}</div><p>Connects ${PCBK.NETS[st.hi][1]}. Every point on this net is at the same voltage${st.hi==='GND'?': notice the two ground symbols are one net, even though no wire joins them on the drawing':''}.</p>`:'<p>Tap a wire to see its net. Tap the switch to flip it.</p>';
+      qbox.innerHTML=quizI<QZ.length?`<div class="kh">Find the net (${quizI+1} of ${QZ.length})</div><p>${QZ[quizI][0]}</p>${qbox.dataset.last==='wrong'?'<p class="note">Not that one. Follow the line from the part named in the question.</p>':qbox.dataset.last==='right'?'<p class="good">Right.</p>':''}`:'<div class="kh">All four found</div><p class="good">You can trace a net from part to part. That is the core skill of reading any schematic.</p>'; }
+    root.appendChild(bench('SCHEMATIC', svg, panel)); panel.appendChild(info); root.appendChild(qbox);
+    root.__schem={st,get quizI(){return quizI;}};
+    render();
+    root.appendChild(el('h3',{class:'h'},[document.createTextNode('Six symbols')]));
+    root.appendChild(el('div',{class:'tscroll'},[el('table',{class:'ktab tt',html:"<tr><th>Symbol</th><th>Part</th><th>Read it as</th></tr><tr><td>long and short plates</td><td>Battery</td><td>The long plate is +. Several pairs = several cells.</td></tr><tr><td>zig-zag (or a plain box in Europe)</td><td>Resistor</td><td>A fixed amount of opposition to current. Value written beside it.</td></tr><tr><td>triangle into a bar</td><td>Diode</td><td>Current flows the way the triangle points, never back.</td></tr><tr><td>diode plus two arrows out</td><td>LED</td><td>A diode that gives off light.</td></tr><tr><td>bar with two lines, one with an arrow</td><td>NPN transistor</td><td>The arrow sits on the emitter and points the way current leaves.</td></tr><tr><td>three shrinking lines</td><td>Ground</td><td>The 0 V reference. Every ground symbol is the same net.</td></tr></table>"})]));
+    root.appendChild(el('h3',{class:'h'},[document.createTextNode('Three rules')]));
+    root.appendChild(el('ul',{class:'clean',html:"<li><b>A dot means joined.</b> Where wires meet at a dot (like the one above SW1), they are connected.</li><li><b>Crossing without a dot means not joined.</b> Two lines can cross on paper and have nothing to do with each other.</li><li><b>Labels tie things together.</b> Each part has a <em>reference designator</em> (R1, Q1, D1), and the same label always means the same part, on the drawing, the board and the parts list.</li>"}));
+    root.appendChild(el('p',{class:'note',html:"Reading direction: schematics are usually drawn with the positive supply at the top, ground at the bottom, and signals flowing left to right, so current tends to flow downward across the page. It is a convention, not a rule; the connections are what count."}));
+  }});
+
+STEPS.push({part:P_COMP, nav:"Printed circuit boards", title:"Printed circuit boards: the circuit made solid",
+  sub:"The same circuit, made the way nearly all electronics is made: copper paths on a fibreglass board. Peel the layers apart, watch current flow through the copper and through the holes, then find a fault with a probe.",
+  body(root){
+    root.appendChild(el('p',{class:'lead',html:"A printed circuit board (PCB) turns every wire of a schematic into a flat copper path called a <span class='key'>trace</span>. Each part’s legs go through <span class='key'>plated holes</span> lined with copper, so a hole joins the top and bottom copper. When two traces must cross, one hops to the other side of the board through a small plated hole called a <span class='key'>via</span>."}));
+    const sch=S('svg',{viewBox:'0 0 330 210',role:'img','aria-label':'Schematic of the circuit'}), pcb=S('svg',{viewBox:'0 0 340 200',role:'img','aria-label':'Printed circuit board of the same circuit'});
+    const panel=el('div',{}); const info=el('div',{class:'kwork',role:'status'});
+    const st=pcbState(render);
+    const tg=(lab,get,set)=>{ const b=el('button',{type:'button',class:'tog'},[document.createTextNode(lab)]); const sync=()=>b.classList.toggle('on',get()); b.addEventListener('click',()=>{ set(!get()); sync(); render(); }); sync(); return b; };
+    const row1=el('div',{class:'ctrlrow'},[tg('Exploded layers',()=>st.exploded,v=>st.exploded=v),tg('Current flow',()=>st.flow,v=>st.flow=v),tg('Switch SW1',()=>st.sw,v=>{st.sw=v;st.recalc();})]);
+    const row2=el('div',{class:'ctrlrow'},[tg('Top copper',()=>st.layers.top,v=>st.layers.top=v),tg('Bottom copper',()=>st.layers.bot,v=>st.layers.bot=v),tg('Solder mask',()=>st.layers.mask,v=>st.layers.mask=v),tg('Silkscreen',()=>st.layers.silk,v=>st.layers.silk=v)]);
+    panel.appendChild(row1); panel.appendChild(row2);
+    const fbox=el('div',{class:'ctrl'}); fbox.appendChild(el('label',{},[document.createTextNode('Break it')]));
+    const sel=el('select',{'aria-label':'Choose a board fault'}); [['none','Working board'],['crack','Cracked trace'],['bridge','Solder bridge'],['cold','Cold solder joint'],['mys','Mystery fault (find it with the probe)']].forEach(([k,t])=>sel.appendChild(el('option',{value:k},[document.createTextNode(t)])));
+    sel.addEventListener('change',()=>{ st.probes=[]; st.revealed=false; st.guess=null; if(sel.value==='mys'){ st.fault='none'; st.mystery=['crack','bridge','cold'][Math.floor(Math.random()*3)]; st.probing=true; } else { st.mystery=null; st.fault=sel.value; st.revealed=true; } st.recalc(); });
+    fbox.appendChild(sel); panel.appendChild(fbox);
+    const probeBtn=tg('Probe mode: tap pads to measure',()=>st.probing,v=>{ st.probing=v; if(!v) st.probes=[]; }); panel.appendChild(el('div',{class:'ctrlrow'},[probeBtn]));
+    root.appendChild(bench('SAME CIRCUIT · TWO DRAWINGS', el('div',{class:'pcbpair'},[sch,pcb]), panel)); root.appendChild(info);
+    const FX={crack:['Cracked trace','A hairline crack in the copper between D1 and Q1. The board looks fine, but the path is open: no current, so the LED stays dark even with the switch closed. Probe both ends of the trace: the LED end floats near 7.4 V, the transistor end sits at 0 V. Two different voltages on what should be one net means a break between them. Cracks come from flexing, heat cycles and drops.'],
+      bridge:['Solder bridge','A blob of solder joins Q1’s base and collector pads, which sit close together. The LED now lights whether the switch is open or closed: current from the LED flows straight into the base. Probe: base and collector read the same voltage (0.72 V), which they never do in a working switch. Bridges come from too much solder or pads too close together.'],
+      cold:['Cold solder joint','D1’s anode was soldered without enough heat, so the joint is grainy and barely touching. The LED glows very dimly. Probe: the anode pad reads about 8.7 V and the cathode 0.2 V, so the LED seems to have 8.5 V across it, far more than an LED ever drops when lit. The missing volts are being lost in the bad joint. Cold joints are the most common hand-soldering fault.']};
+    function render(){ st.flowEls=[]; drawSchematic(sch,st); drawPCB(pcb,st);
+      const r=st.res, f=st.mystery?null:st.fault, H=st.hi; let h='';
+      if(H) h+=`<div class="kh">Net: ${PCBK.NETS[H][0]}</div><p>On the board this net is ${PCBK.TR.filter(t=>t[0]===H).length} trace${PCBK.TR.filter(t=>t[0]===H).length>1?'s':''}${H==='BASE'?', one on the top copper reached through the via so it can cross the ground trace below':''}. In the schematic it is just a line.</p>`;
+      h+=`<p>LED current <b>${r.led.toFixed(1)} mA</b> (${r.led>3?'lit':r.led>0.3?'very dim':'dark'}) · base current <b>${r.ib.toFixed(2)} mA</b> · switch ${st.sw?'closed':'open'}.</p>`;
+      if(f&&f!=='none') h+=`<div class="kh">${FX[f][0]}</div><p>${FX[f][1]}</p>`;
+      if(st.mystery){ h+=`<div class="kh">Mystery fault</div><p>Something is wrong with this board. Flip the switch, watch the LED, then probe pads (probe mode is on) and accuse:</p><div class="hl mguess"></div>`; if(st.guess) h+=`<p class="note">${st.guess}</p>`; }
+      if(st.probes.length) h+=`<p class="note">Probe readings (to ground): ${st.probes.map(p=>PCBK.PADS[p.k][3]+' '+p.v.toFixed(2)+' V').join(' · ')}</p>`;
+      info.innerHTML=h;
+      if(st.mystery){ const g=info.querySelector('.mguess'); Object.keys(FX).forEach(k=>{ const b=el('button',{type:'button',class:'btn'},[document.createTextNode(FX[k][0])]); b.addEventListener('click',()=>{ if(k===st.mystery){ st.fault=k; st.mystery=null; st.revealed=true; sel.value=k; st.guess=null; } else st.guess=`Not a ${FX[k][0].toLowerCase()}: ${k==='crack'?'with a crack the LED never lights at all, and two ends of one trace read differently.':k==='bridge'?'a bridge lights the LED even with the switch open.':'a cold joint leaves the LED dim, not dark or stuck on.'}`; render(); }); g.appendChild(b); }); }
+      probeBtn.classList.toggle('on',st.probing); }
+    root.__pcb={st,render,sel,FX};
+    render();
+    let last=0; rAFLoop(t=>{ const dt=Math.min(.05,t-last); last=t; st.flowEls.forEach(f=>{ f.__o-=f.__v*dt; f.setAttribute('stroke-dashoffset',f.__o.toFixed(1)); }); });
+    root.appendChild(el('p',{html:"<b>What each layer does.</b> The <em>core</em> is fibreglass cloth set in epoxy (called FR-4): stiff, cheap, and an insulator. <em>Copper</em> is bonded to each side and etched away everywhere except the traces and pads. The green <em>solder mask</em> covers the copper except where parts are soldered, so solder can’t bridge between traces. The white <em>silkscreen</em> prints part outlines and labels like R1 and Q1, the same reference designators as on the schematic. Phones and computers use boards with 8 to 20 or more copper layers stacked up and joined by vias."}));
+    root.appendChild(el('p',{class:'note',html:"Why fault-find with voltages? Most board faults are invisible: a crack can be thinner than a hair. A meter turns the invisible into numbers, and the rule is always the same: every point on one net should read the same voltage. Where two points that should match don’t, the fault is between them."}));
+  }});
+
 STEPS.push(recallStep(P_COMP,'comp',"Check: Components","Check yourself — Components",
-  "Thirteen questions across the parts, the circuit laws and counting. Picture the sim if it helps — that’s retrieval too.",[
+  "Fourteen questions across the parts, the circuit laws, counting and circuit boards. Picture the sim if it helps — that’s retrieval too.",[
+  {q:"On a circuit board, one end of a trace reads 7.4 V and the other end reads 0 V. What does that tell you?",
+   o:["Both readings are normal","The trace is cracked somewhere between the two points","The battery is flat","The trace needs a thicker wire"],a:1,
+   why:"Every point on one net should read the same voltage, because a good trace has almost no resistance. A big difference between two ends means the path is broken between them.",see:"Printed circuit boards"},
   {q:"A 4-bit counter never shows the numbers 4 to 15; it runs 0, 1, 2, 3 and starts again. Where is the fault most likely?",
    o:["The 1s stage","Between the 2s stage and the 4s stage","The clock is too fast","The 8s light has burned out"],a:1,
    why:"The 1s and 2s stages count fine (0–3 appear), but nothing above them ever changes, so the signal is lost after the 2s stage: a cut connection, or a dead 4s stage. The missing numbers point at the broken stage.",see:"Counters & registers"},
@@ -2265,7 +2452,7 @@ STEPS.push({part:P_SYS, nav:"NEETS & where next", title:"NEETS: what it is, how 
      [1,'Matter, Energy, and Direct Current','part','Voltage, current, resistance, Ohm’s law, series and parallel circuits, Kirchhoff’s laws, conventional vs. electron current, speed of electricity','Magnetism basics, battery chemistry in depth, power in series and parallel networks'],
      [2,'Alternating Current and Transformers','none','—','All of it: sine waves, frequency, transformers'],
      [3,'Circuit Protection, Control, and Measurement','touch','Switches, current limiting','Fuses and breakers, relays as control, using meters'],
-     [4,'Electrical Conductors, Wiring Techniques, and Schematic Reading','touch','Breadboard nodes, wiring on the trainer','Reading schematic symbols, wire sizes, splices and soldering'],
+     [4,'Electrical Conductors, Wiring Techniques, and Schematic Reading','part','Breadboard nodes, wiring on the trainer; schematic symbols, nets, reference designators and the rules for reading junctions','Wire sizes and gauges, splices, terminals, soldering technique'],
      [5,'Generators and Motors','touch','Electromagnet, motor and speaker basics','Induction, generators, motor types and control'],
      [6,'Electronic Emission, Tubes, and Power Supplies','touch','Vacuum tubes as history (Fleming’s valve)','How tubes work; power supply circuits'],
      [7,'Solid-State Devices and Power Supplies','part','Diode, LED, transistor, p–n junction, forward voltage','Rectifiers, filters and regulated power supplies; Zener diodes'],
@@ -2275,7 +2462,7 @@ STEPS.push({part:P_SYS, nav:"NEETS & where next", title:"NEETS: what it is, how 
      [11,'Microwave Principles','none','—','All of it'],
      [12,'Modulation','none','—','All of it: AM, FM, pulse modulation'],
      [13,'Number Systems and Logic Circuits','part','Logic gates, truth tables, AND/OR/NOR/NAND built from switches, diodes and transistors; binary place values, flip-flops, ripple counters, registers and shift registers','Hexadecimal and octal, binary arithmetic, decoders, synchronous counters, memory arrays'],
-     [14,'Introduction to Microelectronics','none','—','Printed circuit boards, high-reliability soldering, miniature and microminiature (2M) repair'],
+     [14,'Introduction to Microelectronics','touch','PCB layers, traces, vias and plated holes; board faults (cracked trace, solder bridge, cold joint) found with a probe','High-reliability soldering practice, miniature and microminiature (2M) repair, how integrated circuits are made'],
      [15,'Principles of Synchros, Servos, and Gyros','none','—','All of it — the natural home of the mechatronics track'],
      [16,'Test Equipment','part','Oscilloscope basics: volts/div, time/div, trigger, measuring period','Multimeters, probes, signal generators'],
      [17,'Radio-Frequency Communications Principles','none','—','All of it'],
@@ -2296,11 +2483,11 @@ STEPS.push({part:P_SYS, nav:"NEETS & where next", title:"NEETS: what it is, how 
     NEETS.forEach(([n,t,s,have,todo])=>nt.appendChild(el('tr',{},[el('td',{class:'m'},[document.createTextNode(String(n))]),el('td',{},[document.createTextNode(t)]),
       el('td',{},[el('span',{class:'nst',style:`color:${ST[s][1]};border-color:${ST[s][1]}`},[document.createTextNode(ST[s][0])])]),el('td',{},[document.createTextNode(have)]),el('td',{},[document.createTextNode(todo)])])));
     root.appendChild(nt);
-    root.appendChild(el('p',{class:'note',html:"Bottom line: no module is complete yet. The course is strongest on the core of Modules 1, 7, 9, 13 and 16, which is the right place to start, and half the series hasn’t been started. Module 19 (safety) should come before anything that touches wall power, and Module 14 is where printed circuit boards and soldering live."}));
+    root.appendChild(el('p',{class:'note',html:"Bottom line: no module is complete yet. The course is strongest on the core of Modules 1, 7, 9, 13 and 16, which is the right place to start, and nearly half the series hasn’t been started yet. Module 19 (safety) should come before anything that touches wall power, and Module 14 is where printed circuit boards and soldering live."}));
     root.appendChild(el('h3',{class:'h'},[document.createTextNode('Where we go next')]));
     root.appendChild(el('ul',{class:'clean',html:
       "<li><strong>Electrical safety</strong> (Module 19), then <strong>AC and transformers</strong> (Module 2) on the oscilloscope, then <strong>rectifiers and power supplies</strong> (Module 7).</li>"+
-      "<li><strong>Schematic reading</strong> (Module 4), leading into <strong>printed circuit boards and soldering</strong> (Module 14).</li>"+
+      "<li><strong>Soldering and wiring practice</strong> (rest of Modules 4 and 14).</li>"+
       "<li><strong>Binary arithmetic and decoders</strong> (rest of Module 13), the bridge to the <strong>mechatronics track</strong> and servos (Module 15).</li>"}));
     root.appendChild(el('p',{html:"Tell me which thread to pull and we’ll keep evolving from here."}));
   }});
@@ -2325,6 +2512,18 @@ const ORIGINS={
   now:"<strong>Barely changed since 1971.</strong> It does one job, and chip legs still use 0.1-inch spacing, so there has been no reason to redesign it. Its known limits — springy contacts that add resistance, and long parallel strips that act like tiny capacitors — make it poor for very fast or high-current circuits. For those, engineers move to a printed circuit board, not a better breadboard.",
   timeline:[["1920s","Radio parts nailed to wooden bread boards"],["1960","Thompson (DeVry) files solderless design"],["1971","Portugal (E&L Instruments) files the 0.1-inch layout"],["Today","Essentially the same board"]]},
 
+ "Reading a schematic":{thing:"the schematic",verdict:'both',change:1,
+  need:"Early electrical diagrams were pictures: drawings of the actual instruments and coils, wires and all. As telegraph, telephone and radio circuits grew, a picture of every part became unreadable, and what engineers needed to see was only <em>what connects to what</em>.",
+  how:"<strong>Grew by habit, then was agreed on purpose.</strong> No one person invented the schematic. Engineers gradually swapped pictures for simple symbols in the late 1800s and early 1900s, and each country and company had its own versions. Standards bodies later fixed the symbols so a drawing could be read anywhere: in the US, IEEE Std 315 (1975); internationally, IEC 60617. Europe’s box-shaped resistor and America’s zig-zag both survive because both standards allow them.",
+  shape:"A schematic throws away position, size and appearance on purpose. Two parts drawn side by side may be far apart on the real board. What it keeps is the one thing a circuit depends on: which points are joined. That is why it reads more like a subway map than a photograph.",
+  now:"<strong>Same idea, now the master copy.</strong> Today the schematic is drawn in software first, and the board layout is generated from it. The program checks that every connection on the board matches the schematic exactly, so the drawing you read is the design itself.",
+  timeline:[["1800s","Diagrams are pictures of the real apparatus"],["Early 1900s","Symbols replace pictures in telegraph and radio work"],["1975","IEEE Std 315 standardises US symbols"],["Today","Schematic capture software drives the board layout"]]},
+ "Printed circuit boards":{thing:"the printed circuit board",verdict:'built',change:2,
+  need:"Radios of the 1920s and 30s were wired by hand: every connection a separate wire, cut, routed and soldered point to point. It was slow, bulky, and every set could be wired slightly differently, or wrongly.",
+  how:"<strong>Designed on purpose, by an outsider.</strong> Inventors had patented flat conductors on insulating boards since the early 1900s, but the practical printed circuit came from Paul Eisler, an engineer from Vienna who fled to Britain in 1936. Borrowing methods from printing, he etched the wiring out of copper foil bonded to a board, and built a working radio that way. British industry and government showed little interest; he even lost his patent rights to a publishing firm. Then the United States used printed circuits in artillery <em>proximity fuzes</em> during the Second World War, which needed to be small, identical and tough. His role as inventor was recognised only after a long legal fight. He clearly knew what it could become; it was everyone else who took convincing.",
+  shape:"Why flat copper? Because it can be made like printing: one master pattern, thousands of identical boards, no wiring mistakes. Why plated holes? So one hole can join a part’s leg to copper on both sides. Why green? It is the colour of the epoxy solder mask that became standard; boards can be any colour.",
+  now:"<strong>Reworked again and again.</strong> In the 1950s parts went through holes and whole boards were soldered in one pass through a wave of molten solder. From the 1980s <em>surface-mount</em> parts, soldered flat onto pads with no holes, took over and shrank everything. A phone board today stacks 10 or more copper layers joined by microscopic vias, but it is still Eisler’s idea: wiring that is made, not wired.",
+  timeline:[["1903","Early patents for flat conductors on insulating boards"],["1936","Paul Eisler in London: an etched-copper printed circuit"],["1940s","Printed circuits in wartime proximity fuzes"],["1950s","Through-hole boards, wave soldering, mass production"],["1980s","Surface-mount parts take over"],["Today","Boards with 10+ layers and microscopic vias"]]},
  "Counters & registers":{thing:"the electronic counter",verdict:'built',change:1,
   need:"By the late 1920s physicists at the Cavendish Laboratory in Cambridge were splitting atoms and needed to count the alpha particles that came flying out. People counted them by eye as tiny flashes on a screen, and electromechanical counters were too slow to keep up when particles came fast.",
   how:"<strong>Designed on purpose, for physics.</strong> In 1929–30 C. E. Wynn-Williams, with H. M. Cave and F. A. B. Ward, built a <em>scale-of-two</em> counter from thyratrons (gas-filled switching tubes) and published it in 1932. Each stage passed on one pulse for every two it received, so a chain of stages cut a fast stream of particles down to a rate an ordinary mechanical counter could follow. Rutherford encouraged the work. There is no sign Wynn-Williams was thinking about computers: the computing link came later.",
@@ -2547,6 +2746,14 @@ const GLOSS=[
  ['series','Parts connected one after another on a single path. Same current through each; their voltages add up to the supply.','Series & parallel'],
  ['parallel','Parts connected side by side across the same two points. Same voltage across each; their currents add up.','Series & parallel'],
  ['junction','A point where three or more wires meet, so current can split or combine.','Kirchhoff’s laws'],
+ ['schematic','A drawing of a circuit that shows only what connects to what, using standard symbols.','Reading a schematic'],
+ ['net','Every point in a circuit that is joined together; all of them sit at the same voltage.','Reading a schematic'],
+ ['reference designator','A part’s label, such as R1, Q1 or D1, used on the schematic, the board and the parts list alike.','Reading a schematic'],
+ ['PCB','Printed circuit board: copper traces bonded to an insulating board, replacing hand-wired connections.','Printed circuit boards'],
+ ['trace','A flat copper path on a circuit board that does the job of a wire.','Printed circuit boards'],
+ ['via','A small plated hole that carries a connection from one copper layer of a board to another.','Printed circuit boards'],
+ ['solder bridge','Solder that accidentally joins two points that should be separate: a short circuit.','Printed circuit boards'],
+ ['cold joint','A solder joint made without enough heat: dull, grainy and only partly connected.','Printed circuit boards'],
  ['flip-flop','A circuit with two steady states (0 and 1) that stays in whichever one it was last set to: one bit of memory.','Counters & registers'],
  ['counter','Flip-flops chained so each one flips when the one before falls from 1 to 0. Together they count pulses in binary.','Counters & registers'],
  ['register','A row of flip-flops that store a number together, loaded in one clock tick.','Counters & registers'],
