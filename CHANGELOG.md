@@ -4,11 +4,14 @@ Builds are stamped `build YYYY.MM.DD-n` with the UTC ship time in each file's he
 
 ## 2026-11-09
 
-### Course — build 2026.11.09-1
+### Course — builds 2026.11.09-1 to -2
+- **-2** **Counters & registers** lesson: four toggle flip-flops that count in binary as you pulse them, with the change rippling stage by stage and a live timing diagram showing each stage at half the rate of the one before. Break it with a cut wire or a stuck stage (or a hidden mystery fault) and diagnose it from the numbers that never appear. Register mode loads four bits at once and shifts them left (doubling the number). Origin story: Wynn-Williams's scale-of-two counter (1929–32), built to count alpha particles at the Cavendish, later used at Bletchley Park. NEETS Module 13 row updated; glossary +5; one recall question. Fixed: the Components check said "Six questions" when it had thirteen.
 - "Build it for real" for the blinker and logic-gate projects now opens fully wired circuits (the honest-limit note is gone).
 
 ### Trainer — build 2026.11.09-1
 - **Every live kit project is now wired on the board** and runs on the solver: the NOT, OR, AND, NOR and NAND gates (#24–28) as transistor logic, and the multivibrator (#29), adjustable oscillator (#32) and light-controlled bird (#1) as real two-transistor astables. **Capacitors now charge over time**: the blinker steps forward on screen in real time, and audio oscillators run in fast-forward to measure the pitch you hear. Measured rates match RC theory (blinker within 3% of the swing-corrected formula; oscillator within 8% of 0.69 RC). **Transistor bases now draw current** through a modelled base–emitter junction. Break-it on timed circuits explains what happens over time. Fixed a solver bug: a diode that was on could hold itself on with reverse current, and two parts could flip on and off forever; this made the NAND gate's output depend on what you had pressed before.
+
+Sources for history added this day: Wikipedia (C. E. Wynn-Williams), Computing History (Eryl Wynn-Williams invents the scale-of-two counter).
 
 ## 2026-11-08
 

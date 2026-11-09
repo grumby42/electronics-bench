@@ -4,7 +4,7 @@
      Companion to the 500-in-1 trainer. Walks the foundations, every core
      component (live micro-sims), then 4 functionally distinct projects,
      then how they combine. Pedagogy sequenced after the Navy NEETS series.
-     build 2026.11.09-1   ·   shipped 2026-11-09T03:14:36Z (UTC)
+     build 2026.11.09-2   ·   shipped 2026-11-09T05:05:46Z (UTC)
      single-file, offline, no external deps
      ==================================================================== -->
 <html lang="en">
@@ -223,6 +223,12 @@
   .ktab tr.sum td{border-bottom:0; border-top:1px solid var(--line); font-weight:600}
   .ktab tr.sum td.num{color:var(--copper)}
   .handoff .hl{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 6px}
+  .ctrlrow{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0}
+  .ctrl select{width:100%; min-height:40px; background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:inherit}
+  .tdia{border:1px solid var(--line); border-radius:12px; background:var(--card); padding:8px; margin:12px 0; max-width:66ch}
+  .tdia svg{width:100%; height:auto; display:block}
+  .kwork .mguess{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0}
+  .kwork .good{color:var(--phos)}
   /* ---------- deep history ---------- */
   .pmlist{margin-top:4px}
   .pmlist li.last{color:var(--ink)} .pmlist li.none{opacity:.75}
@@ -307,7 +313,7 @@
 <header>
   <button class="menu-btn" id="menuBtn" aria-label="Lessons">☰</button>
   <div class="brand">EL500 · <b>Learn</b></div>
-  <span class="badge" id="badge">build 2026.11.09-1</span>
+  <span class="badge" id="badge">build 2026.11.09-2</span>
   <span class="grow"></span>
   <button class="glossbtn" id="glossBtn" type="button" aria-haspopup="dialog">Glossary</button>
   <label class="rm"><input type="checkbox" id="reduceMotion"> Reduce motion</label>
@@ -1679,6 +1685,92 @@ STEPS.push({part:P_COMP, nav:"See the flow: gates", title:"See the flow: logic g
     root.appendChild(el('p',{html:"What changes is <strong>speed, size and gain</strong>. A gate has to hand the next gate a strong, clean signal, or a long chain of them fades into mush — exactly the telegraph problem from the trainer’s lineage track. Pipes and levers lose pressure and push at every step, so they need a fresh supply to restore the signal, which is what a relay, a fluidic amplifier and a transistor each do. Transistors won because they restore the signal, switch billions of times a second, and shrink to a few atoms wide."}));
   }});
 
+/* ---- Components: counters & registers (flip-flops in a row) ---- */
+STEPS.push({part:P_COMP, nav:"Counters & registers", title:"Counters & registers: flip-flops in a row",
+  sub:"One flip-flop remembers one bit. Chain four and they count; line four up side by side and they hold a number. This is where electronics starts to look like a computer.",
+  body(root){
+    root.appendChild(el('p',{class:'lead',html:"A <span class='key'>flip-flop</span> has two steady states, 0 and 1, and stays in whichever it was put in. A <em>toggle</em> flip-flop flips to the other state each time its input falls from 1 to 0. Feed each flip-flop’s output into the next one’s input and something remarkable happens: the row <span class='key'>counts in binary</span>, with no adding circuit anywhere."}));
+    root.appendChild(el('p',{html:"Press <b>Pulse</b> and watch the change ripple from right to left. Each stage only flips when the stage before it falls from 1 to 0, so each stage flips at <em>half</em> the rate of the one before. Read the lights as 8s, 4s, 2s and 1s."}));
+    const svg=S('svg',{viewBox:'0 0 340 170',role:'img','aria-label':'Four flip-flops in a row, counting in binary'}); const layer=S('g',{}); svg.appendChild(layer);
+    const panel=el('div',{});
+    const seg=el('div',{class:'seg'}); [['c','Counter'],['r','Register']].forEach(([k,t],i)=>{ const b=el('button',{type:'button',class:i===0?'on':''},[document.createTextNode(t)]); b.dataset.k=k; seg.appendChild(b); }); panel.appendChild(seg);
+    const btns=el('div',{class:'ctrlrow'}); panel.appendChild(btns);
+    const mkb=(t,cls)=>{ const b=el('button',{type:'button',class:'btn '+(cls||'')},[document.createTextNode(t)]); btns.appendChild(b); return b; };
+    const faultBox=el('div',{class:'ctrl'}); panel.appendChild(faultBox);
+    root.appendChild(bench('COUNTER BENCH', svg, panel));
+    const work=el('div',{class:'kwork',role:'status'}); root.appendChild(work);
+    const tsvg=S('svg',{viewBox:'0 0 340 150',role:'img','aria-label':'Timing diagram: clock and the four outputs over the last 16 pulses'}); root.appendChild(el('div',{class:'tdia'},[tsvg]));
+    const FAULTS={none:['Working',null],cut:['Wire from stage 2 to stage 3 cut','After the 2s stage, nothing is ever clocked: the count runs 0, 1, 2, 3 and starts again. Numbers 4 to 15 never appear.'],
+      s0:['2s stage stuck at 0','The 2s output never falls, so nothing to its left ever flips. The count goes 0, 1, 0, 1… Only 0 and 1 ever appear.'],
+      s1:['8s stage stuck at 1','Everything counts, but the top light never goes out, so every number reads 8 too high: 8 to 15, then 8 again. 0 to 7 never appear.']};
+    let mode='c', q=[0,0,0,0], d=[1,0,1,1], fault='none', mystery=null, hist=[], seen=new Set([0]), busy=false, pulses=0, active=-1, auto=false, solved=false;
+    const stuck=i=>{ const f=mystery||fault; return f==='s0'&&i===1?0:f==='s1'&&i===3?1:null; };
+    const out=i=>stuck(i)??q[i];
+    const val=()=>out(0)+2*out(1)+4*out(2)+8*out(3);
+    const X=i=>255-i*70;
+    function draw(){
+      layer.innerHTML='';
+      const ck=S('text',{x:336,y:30,fill:'var(--muted)','font-size':'9','text-anchor':'end'}); ck.textContent=mode==='c'?'pulses in':'load / shift'; layer.appendChild(ck);
+      for(let i=0;i<4;i++){ const x=X(i), on=out(i)===1, hot=active===i;
+        if(mode==='c'){ const x2=i===0?335:X(i-1); const ln=S('polyline',{points:`${x2},55 ${x+56},55`,fill:'none',stroke:hot?'var(--copper)':'var(--ink)','stroke-width':hot?3:1.6}); layer.appendChild(ln);
+          if(i>0&&(mystery||fault)==='cut'&&i===2&&!mystery){ const c=S('text',{x:x+63,y:51,fill:'#ff6a5a','font-size':'12','text-anchor':'middle'}); c.textContent='✕'; layer.appendChild(c); } }
+        layer.appendChild(S('rect',{x,y:38,width:56,height:44,rx:6,fill:hot?'rgba(232,140,60,.18)':'var(--bg2)',stroke:hot?'var(--copper)':'var(--line)','stroke-width':hot?2:1}));
+        const t=S('text',{x:x+28,y:57,fill:'var(--muted)','font-size':'8','text-anchor':'middle'}); t.textContent=mode==='c'?'toggle':'store'; layer.appendChild(t);
+        const b=S('text',{x:x+28,y:75,fill:on?'var(--phos)':'var(--muted)','font-size':'16','text-anchor':'middle','font-family':'var(--mono)'}); b.textContent=out(i); layer.appendChild(b);
+        layer.appendChild(S('circle',{cx:x+28,cy:20,r:9,fill:on?'#ff5a4a':'#3a2422',stroke:on?'#ffb0a4':'#5a3a36','stroke-width':1.5,style:on?'filter:drop-shadow(0 0 6px #ff5a4a)':''}));
+        const p=S('text',{x:x+28,y:98,fill:'var(--copper)','font-size':'10','text-anchor':'middle'}); p.textContent=[1,2,4,8][i]+'s'; layer.appendChild(p);
+        if(mode==='r'){ const sw=S('g',{style:'cursor:pointer'}); sw.appendChild(S('rect',{x:x+14,y:110,width:28,height:16,rx:8,fill:d[i]?'var(--phos)':'var(--bg2)',stroke:'var(--line)'})); sw.appendChild(S('circle',{cx:x+(d[i]?34:22),cy:118,r:6,fill:'#fff'}));
+          const lt=S('text',{x:x+28,y:138,fill:'var(--muted)','font-size':'8','text-anchor':'middle'}); lt.textContent='input '+d[i]; sw.appendChild(lt); sw.addEventListener('click',()=>{ d[i]=d[i]?0:1; draw(); }); layer.appendChild(sw); } }
+      const big=S('text',{x:170,y:mode==='c'?150:162,fill:'var(--txt)','font-size':mode==='c'?'22':'13','text-anchor':'middle','font-family':'var(--mono)'});
+      big.textContent=mode==='c'?`${out(3)}${out(2)}${out(1)}${out(0)} = ${val()}`:`stored ${out(3)}${out(2)}${out(1)}${out(0)} = ${val()}   ·   inputs ${d[3]}${d[2]}${d[1]}${d[0]} = ${d[0]+2*d[1]+4*d[2]+8*d[3]}`; layer.appendChild(big);
+      drawTiming(); explain();
+    }
+    function drawTiming(){
+      tsvg.innerHTML=''; const rows=['clock','1s','2s','4s','8s'], N=16, x0=40, w=(330-x0)/N;
+      rows.forEach((r,j)=>{ const y=14+j*27; const t=S('text',{x:4,y:y+12,fill:j?'var(--phos)':'var(--copper)','font-size':'9'}); t.textContent=r; tsvg.appendChild(t);
+        tsvg.appendChild(S('line',{x1:x0,y1:y+18,x2:330,y2:y+18,stroke:'var(--line)','stroke-width':.5}));
+        let pts=''; const H=hist.slice(-N);
+        H.forEach((h,k)=>{ const xa=x0+k*w, xb=xa+w;
+          if(j===0){ pts+=`${xa},${y+18} ${xa+w*.15},${y+18} ${xa+w*.15},${y+2} ${xa+w*.5},${y+2} ${xa+w*.5},${y+18} ${xb},${y+18} `; }
+          else { const lv=h[j-1]?y+2:y+18; pts+=`${xa},${lv} ${xb},${lv} `; } });
+        if(pts) tsvg.appendChild(S('polyline',{points:pts,fill:'none',stroke:j?'var(--phos)':'var(--copper)','stroke-width':1.6})); });
+      if(!hist.length){ const t=S('text',{x:185,y:80,fill:'var(--muted)','font-size':'10','text-anchor':'middle'}); t.textContent='press Pulse: each row will run at half the speed of the row above'; tsvg.appendChild(t); }
+    }
+    function explain(){
+      if(mode==='r'){ work.innerHTML=`<div class="kh">A register: four flip-flops that store together</div><p><b>Load</b> copies the four inputs into the flip-flops in one clock tick. Then change the inputs: the stored number doesn’t move. That is memory, and four of these side by side is a <em>4-bit register</em>. Your computer’s processor works on registers 64 bits wide.</p><p><b>Shift</b> moves every stored bit one place to the left and takes a new bit in on the right from the 1s input. Shifting left doubles the number (3 → 6 → 12), just as adding a zero multiplies by ten in decimal. Shift registers are how a keyboard or serial cable sends a number down a single wire, one bit at a time.</p>`; return; }
+      const missing=[...Array(16).keys()].filter(n=>!seen.has(n));
+      let h=`<div class="kh">${mystery?'Mystery fault: which stage is broken?':FAULTS[fault][0]}</div><p>Pulses so far: <b>${pulses}</b>. Numbers seen: ${seen.size} of 16.${pulses>=16?` Never seen: <b>${missing.length?missing.join(', '):'none'}</b>.`:' Keep pulsing until you have seen a full cycle of 16.'}</p>`;
+      if(!mystery&&fault!=='none') h+=`<p>${FAULTS[fault][1]}</p><p class="note">Troubleshooting a counter means reading the pattern of numbers that never appear. Which ones are missing points straight at the stage that has failed.</p>`;
+      else if(!mystery) h+=`<p>The 1s light flips every pulse, the 2s every 2, the 4s every 4, the 8s every 8. Each stage divides the pulse rate by two. After 15 (1111) the next pulse sets every stage back to 0 and they all carry together, like 9999 rolling over to 0000.</p>`;
+      if(mystery) h+=`<p>Pulse until you can see which numbers never appear, then accuse a stage:</p><div class="hl mguess"></div>`;
+      if(solved) h+=`<p class="${/^Right/.test(solved)?'good':'note'}">${solved}</p>`;
+      work.innerHTML=h;
+      if(mystery){ const g=work.querySelector('.mguess'); Object.keys(FAULTS).filter(k=>k!=='none').forEach(k=>{ const b=el('button',{type:'button',class:'btn'},[document.createTextNode(FAULTS[k][0])]); b.addEventListener('click',()=>{ solved = k===mystery ? 'Right. '+FAULTS[k][1] : (pulses<16?'Not yet — pulse through a full cycle of 16 first, then look at what never appears.':'Not that one: '+FAULTS[k][1].split('.')[0].toLowerCase()+' — does that match what you see?'); if(k===mystery){ fault=k; mystery=null; } draw(); }); g.appendChild(b); }); }
+    }
+    const record=()=>{ hist.push([out(0),out(1),out(2),out(3)]); if(hist.length>64) hist.shift(); seen.add(val()); };
+    function pulse(){
+      if(busy) return; pulses++; let i=0; const f=mystery||fault;
+      const step=()=>{ active=i; const before=out(i); q[i]^=1; const fell=before===1&&out(i)===0;
+        draw(); const next=fell && i<3 && !(f==='cut'&&i===1);
+        if(next){ i++; if(REDUCE) step(); else { busy=true; setTimeout(step,110); } } else { busy=false; active=-1; record(); draw(); } };
+      step();
+    }
+    const reset=()=>{ q=[0,0,0,0]; hist=[]; seen=new Set([val()]); pulses=0; solved=false; draw(); };
+    function setMode(k){ mode=k; auto=false; seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.k===k)); buildButtons(); reset(); }
+    function buildButtons(){
+      btns.innerHTML=''; faultBox.innerHTML='';
+      if(mode==='c'){ mkb('Pulse','go').addEventListener('click',pulse); const a=mkb(auto?'Stop':'Run'); a.addEventListener('click',()=>{ auto=!auto; a.textContent=auto?'Stop':'Run'; }); mkb('Reset').addEventListener('click',reset);
+        faultBox.appendChild(el('label',{},[document.createTextNode('Break it')])); const sel=el('select',{'aria-label':'Choose a fault'}); [['none','Working counter'],['cut','Cut the wire from stage 2 to stage 3'],['s0','2s stage stuck at 0'],['s1','8s stage stuck at 1'],['mys','Mystery fault (hidden)']].forEach(([k,t])=>{ const o=el('option',{value:k},[document.createTextNode(t)]); sel.appendChild(o); });
+        sel.value=mystery?'mys':fault; sel.addEventListener('change',()=>{ if(sel.value==='mys'){ fault='none'; const ks=['cut','s0','s1']; mystery=ks[Math.floor(Math.random()*3)]; } else { mystery=null; fault=sel.value; } reset(); }); faultBox.appendChild(sel); }
+      else { mkb('Load','go').addEventListener('click',()=>{ q=d.slice(); record(); draw(); }); mkb('Shift').addEventListener('click',()=>{ q=[d[0],q[0],q[1],q[2]]; record(); draw(); }); mkb('Clear').addEventListener('click',reset); }
+    }
+    seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.k)));
+    root.__counter={pulse,reset,setMode,get val(){return val();},get seen(){return seen;},setFault(k){fault=k;mystery=null;reset();},setMystery(k){mystery=k;fault='none';reset();},get q(){return q;},get d(){return d;},guessBtns(){return [...work.querySelectorAll('.mguess button')];}};
+    buildButtons(); reset();
+    let acc=0,last=0; rAFLoop(t=>{ const dt=Math.min(.1,t-last); last=t; if(auto&&mode==='c'){ acc+=dt; if(acc>0.7){ acc=0; pulse(); } } });
+    root.appendChild(el('p',{html:"<b>Ripple.</b> Notice the change travels one stage at a time. In real chips each stage takes a few billionths of a second, but in a long counter those delays add up, and for a moment the outputs show a wrong number. Faster designs clock every stage at once (a <em>synchronous</em> counter). Every digital watch uses this divide-by-two trick: its quartz crystal vibrates 32,768 times a second, which is 2¹⁵, so fifteen stages in a row tick exactly once a second."}));
+  }});
+
 /* ---- 9. Motor / coil (electromechanical bridge) ---- */
 STEPS.push({part:P_COMP, nav:"Motor & coil", title:"Motor, speaker & coil — electricity that moves",
   sub:"Run current through a coil and it becomes a magnet. Switch that magnetism cleverly and you get spinning motors, pushing speakers, and clicking relays.",
@@ -1715,7 +1807,10 @@ function frame(rows){ // rows: [[label, html]]
 
 /* ---- Recall check: Components ---- */
 STEPS.push(recallStep(P_COMP,'comp',"Check: Components","Check yourself — Components",
-  "Six questions, one per family of parts. Picture the sim if it helps — that’s retrieval too.",[
+  "Thirteen questions across the parts, the circuit laws and counting. Picture the sim if it helps — that’s retrieval too.",[
+  {q:"A 4-bit counter never shows the numbers 4 to 15; it runs 0, 1, 2, 3 and starts again. Where is the fault most likely?",
+   o:["The 1s stage","Between the 2s stage and the 4s stage","The clock is too fast","The 8s light has burned out"],a:1,
+   why:"The 1s and 2s stages count fine (0–3 appear), but nothing above them ever changes, so the signal is lost after the 2s stage: a cut connection, or a dead 4s stage. The missing numbers point at the broken stage.",see:"Counters & registers"},
   {q:"You connect an LED straight across 9 V with no resistor. What happens?",
    o:["It glows at a safe brightness","It stays off because 9 V is too much","Nothing limits the current, so it overheats and fails","It glows dimly"],a:2,
    why:"Once on, an LED holds about 1.8 V and will pass far more current than it can survive. The series resistor takes up the rest of the voltage and sets a safe current (10–20 mA).",see:"LED"},
@@ -2179,7 +2274,7 @@ STEPS.push({part:P_SYS, nav:"NEETS & where next", title:"NEETS: what it is, how 
      [10,'Wave Propagation, Transmission Lines, and Antennas','none','—','All of it'],
      [11,'Microwave Principles','none','—','All of it'],
      [12,'Modulation','none','—','All of it: AM, FM, pulse modulation'],
-     [13,'Number Systems and Logic Circuits','part','Logic gates, truth tables, AND/OR/NOR/NAND built from switches, diodes and transistors','Binary and hexadecimal, flip-flops, counters, memory'],
+     [13,'Number Systems and Logic Circuits','part','Logic gates, truth tables, AND/OR/NOR/NAND built from switches, diodes and transistors; binary place values, flip-flops, ripple counters, registers and shift registers','Hexadecimal and octal, binary arithmetic, decoders, synchronous counters, memory arrays'],
      [14,'Introduction to Microelectronics','none','—','Printed circuit boards, high-reliability soldering, miniature and microminiature (2M) repair'],
      [15,'Principles of Synchros, Servos, and Gyros','none','—','All of it — the natural home of the mechatronics track'],
      [16,'Test Equipment','part','Oscilloscope basics: volts/div, time/div, trigger, measuring period','Multimeters, probes, signal generators'],
@@ -2206,7 +2301,7 @@ STEPS.push({part:P_SYS, nav:"NEETS & where next", title:"NEETS: what it is, how 
     root.appendChild(el('ul',{class:'clean',html:
       "<li><strong>Electrical safety</strong> (Module 19), then <strong>AC and transformers</strong> (Module 2) on the oscilloscope, then <strong>rectifiers and power supplies</strong> (Module 7).</li>"+
       "<li><strong>Schematic reading</strong> (Module 4), leading into <strong>printed circuit boards and soldering</strong> (Module 14).</li>"+
-      "<li><strong>Binary, flip-flops and counters</strong> (Module 13), the bridge to the <strong>mechatronics track</strong> and servos (Module 15).</li>"}));
+      "<li><strong>Binary arithmetic and decoders</strong> (rest of Module 13), the bridge to the <strong>mechatronics track</strong> and servos (Module 15).</li>"}));
     root.appendChild(el('p',{html:"Tell me which thread to pull and we’ll keep evolving from here."}));
   }});
 
@@ -2230,6 +2325,12 @@ const ORIGINS={
   now:"<strong>Barely changed since 1971.</strong> It does one job, and chip legs still use 0.1-inch spacing, so there has been no reason to redesign it. Its known limits — springy contacts that add resistance, and long parallel strips that act like tiny capacitors — make it poor for very fast or high-current circuits. For those, engineers move to a printed circuit board, not a better breadboard.",
   timeline:[["1920s","Radio parts nailed to wooden bread boards"],["1960","Thompson (DeVry) files solderless design"],["1971","Portugal (E&L Instruments) files the 0.1-inch layout"],["Today","Essentially the same board"]]},
 
+ "Counters & registers":{thing:"the electronic counter",verdict:'built',change:1,
+  need:"By the late 1920s physicists at the Cavendish Laboratory in Cambridge were splitting atoms and needed to count the alpha particles that came flying out. People counted them by eye as tiny flashes on a screen, and electromechanical counters were too slow to keep up when particles came fast.",
+  how:"<strong>Designed on purpose, for physics.</strong> In 1929–30 C. E. Wynn-Williams, with H. M. Cave and F. A. B. Ward, built a <em>scale-of-two</em> counter from thyratrons (gas-filled switching tubes) and published it in 1932. Each stage passed on one pulse for every two it received, so a chain of stages cut a fast stream of particles down to a rate an ordinary mechanical counter could follow. Rutherford encouraged the work. There is no sign Wynn-Williams was thinking about computers: the computing link came later.",
+  shape:"Why binary rather than counting in tens? A switch with two states is the most reliable thing you can build: it is either clearly on or clearly off, with no in-between to misread. A decimal stage needs ten distinguishable states, which early tubes could not hold steadily. Two states, chained, can count as high as you like.",
+  now:"<strong>Same idea, unimaginably smaller and faster.</strong> In the Second World War Wynn-Williams’s counting know-how went to Bletchley Park, where he worked on the Heath Robinson code-breaking machines that led to Colossus. In 1981 the physicist R. V. Jones wrote in <em>Nature</em> that the modern computer is only possible because of an invention made by a physicist. Today every processor is full of counters and registers, and every quartz watch divides 32,768 vibrations a second by two, fifteen times over, to get one tick a second.",
+  timeline:[["1918","Eccles and Jordan’s flip-flop (two tubes, one bit)"],["1929–32","Wynn-Williams’s scale-of-two counter, for counting alpha particles"],["1943–44","Heath Robinson and Colossus at Bletchley Park"],["1960s","Counters and registers on integrated circuits"],["Today","Billions of flip-flops in every processor"]]},
  "Kirchhoff’s laws":{thing:"Kirchhoff’s laws",verdict:'built',change:0,
   need:"Ohm’s law (1827) describes one resistor on one loop. Real circuits — telegraph networks, measuring bridges — branch and rejoin, and there was no general way to work out what every branch carries.",
   how:"<strong>Worked out on purpose, by a student.</strong> In 1845 Gustav Kirchhoff, aged 21 and still a student at Königsberg, generalised Ohm’s work into two rules that hold for any network: current is conserved at every junction, and voltage sums to zero around every loop. He went on to co-found spectroscopy with Robert Bunsen, discovering the elements caesium and rubidium from the colours of their light.",
@@ -2446,6 +2547,11 @@ const GLOSS=[
  ['series','Parts connected one after another on a single path. Same current through each; their voltages add up to the supply.','Series & parallel'],
  ['parallel','Parts connected side by side across the same two points. Same voltage across each; their currents add up.','Series & parallel'],
  ['junction','A point where three or more wires meet, so current can split or combine.','Kirchhoff’s laws'],
+ ['flip-flop','A circuit with two steady states (0 and 1) that stays in whichever one it was last set to: one bit of memory.','Counters & registers'],
+ ['counter','Flip-flops chained so each one flips when the one before falls from 1 to 0. Together they count pulses in binary.','Counters & registers'],
+ ['register','A row of flip-flops that store a number together, loaded in one clock tick.','Counters & registers'],
+ ['shift register','A register that moves every bit one place along each clock tick: how numbers are sent down a single wire, one bit at a time.','Counters & registers'],
+ ['clock','A steady train of pulses that tells digital circuits when to change.','Counters & registers'],
  ['Kirchhoff’s current law','At any junction, the current flowing in equals the current flowing out.','Kirchhoff’s laws'],
  ['Kirchhoff’s voltage law','Around any closed loop, the voltage rises and drops add up to zero.','Kirchhoff’s laws'],
  ['ohm (Ω)','The unit of resistance. Ω is the Greek capital letter omega.','First: the language'],

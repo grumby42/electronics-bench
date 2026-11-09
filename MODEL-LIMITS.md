@@ -37,6 +37,7 @@ If you find a problem that isn't on this list, please open an issue. That is exa
 - **Heron's cart** moves in exact straight lines and on-the-spot turns. A real rope-driven cart slips, coasts and turns through arcs; Heron's own design details are partly reconstructed by modern researchers.
 - **Jacquard loom** shows one hook per column and one card per row of cloth, with a plain weave. Real Jacquard heads have hundreds of hooks and more complex weave structures.
 - **Bootstrap ladder** machine codes are illustrative; each early computer had its own instruction set. The EDSAC letter codes shown are real in form.
+- **Counter lesson** works at the logic level: each flip-flop is an ideal toggle, and the ripple between stages is slowed to about 0.1 s per stage so you can see it (real stages take nanoseconds). The trainer's L10 flip-flop shows one bit built from real transistors.
 - **Recall questions** test the app's own lessons, not every nuance of the field.
 
 ## History
